@@ -1,0 +1,24 @@
+# Gradle
+.gradle/
+**/build/
+# Local SDK location (machine-specific, never commit)
+local.properties
+# Fresh per-machine Gradle home used for local builds (large, regenerable)
+_working/
+.kotlin/
+*.jks
+*.keystore
+*.p12
+*.pem
+*.key
+*.apk
+*.aab
+.env
+.env.*
+captures/
+# IDE
+.idea/
+*.iml
+# OS
+.DS_Store
+Thumbs.db

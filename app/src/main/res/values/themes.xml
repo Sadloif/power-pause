@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Platform launch theme. Compose supplies the light/dark application palette. -->
+    <style name="Theme.ShutdownProtection" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:windowBackground">@color/power_pause_window</item>
+        <item name="android:windowSplashScreenBackground">@color/power_pause_icon_background</item>
+        <item name="android:windowSplashScreenAnimatedIcon">@drawable/ic_launcher_foreground</item>
+    </style>
+</resources>

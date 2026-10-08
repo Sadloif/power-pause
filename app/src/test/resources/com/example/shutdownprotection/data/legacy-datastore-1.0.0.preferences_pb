@@ -1,0 +1,27 @@
+
+
+schema_version
+
+enabled
+
+start_minute_of_dayx
+
+end_minute_of_day¬
+
+revision 
+6
+allowed_packages"2 
+com.example.shutdownprotection
+
+recovery_required
+
+baseline_present
+
+baseline_captured_at *
+-
+baseline_packages2
+com.example.original
+
+baseline_features
+3
+baseline_app_id *com.example.shutdownprotection

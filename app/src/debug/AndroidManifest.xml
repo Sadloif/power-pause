@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Debug-only development escape route (brief section 10, "Development escape route").
+
+  android:testOnly="true" marks this debug APK as a test package and may enable
+  test-admin removal through authorized tooling when the platform prerequisites are
+  satisfied. Ordinary Device Owner uninstall and device behavior are not guaranteed.
+
+  This file lives in src/debug/ on purpose. It is merged into the debug manifest only
+  and is verified absent from the release manifest (see docs/RECOVERY.md and
+  docs/TEST_RESULTS.md for the verification command and its observed output).
+-->
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <application
+        android:testOnly="true"
+        tools:replace="android:testOnly" />
+
+</manifest>

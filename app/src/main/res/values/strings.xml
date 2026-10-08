@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Power Pause</string>
+    <string name="no_reset_service_description">Closes the ordinary power menu during your selected hours on the tested Reno 15 firmware. Enable the schedule separately in the app. No reset or Shizuku is needed. The service checks system-window identity and does not read app text or take screenshots.</string>
+
+    <!--
+      The explanatory text is fixed by brief section 1 and must appear verbatim.
+      Do not reword it: it is the honest scope statement for this feature.
+    -->
+    <string name="feature_explanation">Restricts the normal Android Power Off and Restart menu during your selected hours on a managed device. Hardware forced restart, manufacturer emergency functions, battery loss, and every possible source of shutdown are outside this feature\'s guarantee.</string>
+
+    <string name="device_owner_required">Device Owner provisioning is required. Installing the APK or activating ordinary Device Administrator access does not enable this feature.</string>
+
+    <string name="second_situation_label">Power menu allowed — managed session active</string>
+
+    <string name="restore_normal_device_mode">Restore Normal Device Mode</string>
+
+    <string name="validation_equal_times">Start and end must be different.</string>
+    <string name="validation_start_range">Start time must be between 00:00 and 23:59.</string>
+    <string name="validation_end_range">End time must be between 00:00 and 23:59.</string>
+    <string name="validation_corrupt_settings">Stored settings could not be read. Protection has been left off and the app is trying to release any restriction it imposed.</string>
+
+    <string name="recovery_incomplete">Recovery incomplete</string>
+
+    <string name="behavior_not_validated">Device behavior not yet validated</string>
+</resources>

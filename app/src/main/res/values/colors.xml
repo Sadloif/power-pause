@@ -1,0 +1,5 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="power_pause_icon_background">#142B3D</color>
+    <color name="power_pause_window">#F6F8FA</color>
+</resources>

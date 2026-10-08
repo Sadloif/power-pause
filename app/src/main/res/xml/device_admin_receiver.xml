@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!--
+  Intentionally minimal (brief section 6.2).
+
+  This feature uses only documented lock-task policy - DevicePolicyManager
+  setLockTaskPackages() and setLockTaskFeatures() - which is not gated behind a
+  legacy <uses-policies> entry. No wipe, password, camera, or unrelated policy is
+  declared here, and none is used by the implementation.
+-->
+<device-admin xmlns:android="http://schemas.android.com/apk/res/android">
+    <uses-policies />
+</device-admin>

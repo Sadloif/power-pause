@@ -250,7 +250,7 @@ class ScheduleCalculator(
             )
         }
 
-        val today = LocalDate.ofInstant(at, zone)
+        val today = at.atZone(zone).toLocalDate()
         val evaluated = mutableListOf<ProtectionInterval>()
         val skipped = mutableListOf<SkippedDay>()
         var match: ProtectionInterval? = null
@@ -289,7 +289,7 @@ class ScheduleCalculator(
         zone: ZoneId = currentZone(),
         maxDays: Int = DEFAULT_SCAN_DAYS,
     ): BoundaryPlan {
-        val firstDay = LocalDate.ofInstant(from, zone).minusDays(1)
+        val firstDay = from.atZone(zone).toLocalDate().minusDays(1)
         val skipped = mutableListOf<SkippedDay>()
         var nextStart: Instant? = null
         var nextEnd: Instant? = null

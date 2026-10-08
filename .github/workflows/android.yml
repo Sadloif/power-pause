@@ -1,4 +1,4 @@
-name: Build both Power Pause editions
+name: Build all Power Pause editions
 
 on:
   push:
@@ -32,12 +32,12 @@ jobs:
         run: |
           "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" "platforms;android-36" "build-tools;36.0.0"
           chmod +x gradlew
-      - name: Test, lint and build both editions
+      - name: Test, lint and build all editions
         run: >-
           ./gradlew
-          :app:testSimpleDebugUnitTest :app:testAdvancedDebugUnitTest
-          :app:lintSimpleRelease :app:lintAdvancedRelease
-          :app:assembleSimpleDebug :app:assembleAdvancedDebug
+          :app:testSimpleDebugUnitTest :app:testCompatibilityDebugUnitTest :app:testAdvancedDebugUnitTest
+          :app:lintSimpleRelease :app:lintCompatibilityRelease :app:lintAdvancedRelease
+          :app:assembleSimpleDebug :app:assembleCompatibilityDebug :app:assembleAdvancedDebug
           "-Pspm.testJavaHome=$JAVA21_HOME"
           --no-daemon --max-workers=2 --console=plain
       - name: Upload test APKs and verification reports
@@ -49,5 +49,6 @@ jobs:
           path: |
             app/build/outputs/apk/simple/debug/*.apk
             app/build/outputs/apk/advanced/debug/*.apk
+            app/build/outputs/apk/compatibility/debug/*.apk
             app/build/reports/
             app/build/test-results/

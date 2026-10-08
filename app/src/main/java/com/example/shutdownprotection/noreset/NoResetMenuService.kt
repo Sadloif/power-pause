@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
+import com.example.shutdownprotection.BuildConfig
 import java.time.Instant
 
 /** Menu dismissal only. No settings writes, shell, Shizuku, enrollment or lock-task calls. */
@@ -20,9 +21,13 @@ class NoResetMenuService : AccessibilityService() {
     private var testDeadline = 0L
     private var interrupted = false
     private var eligibilityProblem: String? = null
+    private var observationDeadline = 0L
+    private var manualTrialDeadline = 0L
+    private val observations = ArrayDeque<String>()
     private val handledWindows = LinkedHashSet<Int>()
     private val changes = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         generation++
+        manualTrialDeadline = 0
     }
 
     override fun onServiceConnected() {
@@ -31,6 +36,9 @@ class NoResetMenuService : AccessibilityService() {
         refreshEligibility()
         interrupted = false
         testDeadline = 0 // A service/process restart never resumes a temporary test.
+        observationDeadline = 0
+        manualTrialDeadline = 0
+        observations.clear()
         store.preferences.registerOnSharedPreferenceChangeListener(changes)
         instance = this
         lastResult = "Service connected. No dismissal recorded in this session."
@@ -56,6 +64,8 @@ class NoResetMenuService : AccessibilityService() {
     fun stop(): Boolean {
         generation++
         testDeadline = 0
+        observationDeadline = 0
+        manualTrialDeadline = 0
         handler.removeCallbacksAndMessages(null)
         // Interrupt blocks stale work even if the durable Stop write fails.
         interrupted = true
@@ -67,11 +77,47 @@ class NoResetMenuService : AccessibilityService() {
         return saved
     }
 
-    fun resumeAfterSave() { refreshEligibility(); interrupted = false; generation++; testDeadline = 0; handler.removeCallbacksAndMessages(null) }
+    fun resumeAfterSave() { refreshEligibility(); interrupted = false; generation++; testDeadline = 0; observationDeadline = 0; manualTrialDeadline = 0; handler.removeCallbacksAndMessages(null) }
     fun stopAndDisable() { stop(); recordLifecycle("explicit_service_disable", "Owner selected Stop and turn off service."); disableSelf() }
     fun secondsRemaining(): Long = ((testDeadline - SystemClock.elapsedRealtime() + 999) / 1000).coerceAtLeast(0)
     fun ready(): Boolean = instance === this && !interrupted && eligibilityProblem == null
     fun problem(): String? = eligibilityProblem
+
+    /** Compatibility experiments require explicit owner input; they never learn/arm an automatic profile. */
+    fun startCompatibilityObservation(): Boolean {
+        if (!compatibilityTrialAllowed()) return false
+        observations.clear()
+        observationDeadline = SystemClock.elapsedRealtime() + 45_000
+        return true
+    }
+
+    fun startCompatibilityBackTrial(): Boolean {
+        if (!compatibilityTrialAllowed() || manualTrialSeconds() > 0) return false
+        val candidate = ++generation
+        val revision = store.read().revision
+        manualTrialDeadline = SystemClock.elapsedRealtime() + 20_000
+        handler.postDelayed({
+            // A late callback is discarded; Stop, edits and disconnect also invalidate it.
+            if (candidate != generation) return@postDelayed
+            if (candidate == generation && compatibilityTrialAllowed() &&
+                store.read().revision == revision && manualTrialDeadline > 0 &&
+                SystemClock.elapsedRealtime() <= manualTrialDeadline + 1_000) {
+                manualTrialDeadline = 0
+                val accepted = performGlobalAction(GLOBAL_ACTION_BACK)
+                lastResult = "One requested Back: accepted=$accepted. Confirm menu closure yourself."
+            }
+            manualTrialDeadline = 0
+        }, 20_000)
+        return true
+    }
+
+    private fun compatibilityTrialAllowed(): Boolean = BuildConfig.COMPATIBILITY_EDITION &&
+        instance === this && !interrupted && store.read().let { it.valid && !it.enabled } &&
+        runCatching { getSystemService(DevicePolicyManager::class.java).isDeviceOwnerApp(packageName) == false }.getOrDefault(false)
+
+    fun manualTrialSeconds(): Long = ((manualTrialDeadline - SystemClock.elapsedRealtime() + 999) / 1000).coerceAtLeast(0)
+    fun observationSeconds(): Long = ((observationDeadline - SystemClock.elapsedRealtime() + 999) / 1000).coerceAtLeast(0)
+    fun observationReport(): String = observations.joinToString("\n\n").ifEmpty { "No System UI window event recorded yet." }
 
     private fun refreshEligibility() {
         val owner = runCatching { getSystemService(DevicePolicyManager::class.java).isDeviceOwnerApp(packageName) }.getOrNull()
@@ -87,6 +133,15 @@ class NoResetMenuService : AccessibilityService() {
         gate.mayDismiss(config, Instant.now(), SystemClock.elapsedRealtime(), testDeadline)
 
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
+        if (instance === this && event != null && BuildConfig.COMPATIBILITY_EDITION &&
+            SystemClock.elapsedRealtime() < observationDeadline && event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
+            event.packageName?.toString() == "com.android.systemui") {
+            val entry = "API=${Build.VERSION.SDK_INT}; model=${Build.MODEL.take(80)}; window=${event.windowId}; class=${event.className?.toString()?.take(200)}"
+            if (observations.lastOrNull() != entry) {
+                if (observations.size == 8) observations.removeFirst()
+                observations.addLast(entry)
+            }
+        }
         if (instance !== this || event == null || !RenoMenuFingerprint.event(event.eventType,
                 event.packageName?.toString(), event.className?.toString())) return
         val config = store.read()
@@ -134,14 +189,14 @@ class NoResetMenuService : AccessibilityService() {
     }
 
     override fun onInterrupt() {
-        interrupted = true; testDeadline = 0; generation++; handler.removeCallbacksAndMessages(null)
+        interrupted = true; testDeadline = 0; observationDeadline = 0; manualTrialDeadline = 0; generation++; handler.removeCallbacksAndMessages(null)
         lastResult = "Service interrupted. Reopen the app before enabling protection."
         recordLifecycle("interrupted", lastResult)
     }
     override fun onUnbind(intent: Intent?): Boolean { disconnect(); return super.onUnbind(intent) }
     override fun onDestroy() { disconnect(); super.onDestroy() }
     private fun disconnect() {
-        generation++; testDeadline = 0; handler.removeCallbacksAndMessages(null)
+        generation++; testDeadline = 0; observationDeadline = 0; manualTrialDeadline = 0; observations.clear(); handler.removeCallbacksAndMessages(null)
         if (::store.isInitialized) store.preferences.unregisterOnSharedPreferenceChangeListener(changes)
         if (instance === this) instance = null
         handledWindows.clear()

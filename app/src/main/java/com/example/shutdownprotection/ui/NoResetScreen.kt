@@ -31,7 +31,11 @@ import java.time.ZoneId
 fun NoResetScreen(onManagedTools: () -> Unit = {}) {
     val context = LocalContext.current
     val appName = stringResource(R.string.app_name)
-    val edition = if (BuildConfig.MANAGED_TOOLS) "Advanced edition" else "Simple edition"
+    val edition = when {
+        BuildConfig.MANAGED_TOOLS -> "Advanced edition"
+        BuildConfig.COMPATIBILITY_EDITION -> "Android 10+ compatibility preview"
+        else -> "Simple · tested Reno edition"
+    }
     val store = remember { NoResetStore(context) }
     var config by remember { mutableStateOf(store.read()) }
     var start by rememberSaveable { mutableStateOf(ProtectionSettings.formatMinuteOfDay(config.startMinute)) }
@@ -122,6 +126,17 @@ fun NoResetScreen(onManagedTools: () -> Unit = {}) {
                     Text(edition, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.primary)
                 }
             }
+            Surface(modifier = Modifier.fillMaxWidth(), shape = MaterialTheme.shapes.medium,
+                color = if (service != null) MaterialTheme.colorScheme.primaryContainer else MaterialTheme.colorScheme.errorContainer) {
+                Column(Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(if (service != null) "Accessibility connected" else "Accessibility not connected",
+                        style = MaterialTheme.typography.titleMedium, fontWeight = FontWeight.Bold)
+                    Text(if (service == null) "Open Setup to connect the service."
+                        else if (!supported || service.problem() != null || !service.ready()) "Connected does not mean protection is available. Review Setup."
+                        else if (!config.enabled && remaining == 0L) "Service ready · schedule paused"
+                        else "See the schedule status below for protection activity.", style = MaterialTheme.typography.bodySmall)
+                }
+            }
             when (page) {
                 0 -> {
                     val statusColor = if (active) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.secondaryContainer
@@ -153,6 +168,8 @@ fun NoResetScreen(onManagedTools: () -> Unit = {}) {
                 1 -> {
                     Text("One-time setup", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     Text("No factory reset or running Shizuku needed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    if (BuildConfig.COMPATIBILITY_EDITION) Text("Android 10+ installation preview. Automatic schedules are available only on the verified Reno firmware. On another phone, use the optional checks in Tools; a successful single Back does not enable automatic protection.", color = MaterialTheme.colorScheme.error)
+                    Text("Keep only one Power Pause edition’s Accessibility service enabled at a time. Each edition has separate settings and approval.", style = MaterialTheme.typography.bodySmall)
                     SectionCard("1. Allow $appName", "Prevent ColorOS from blocking the service.") {
                         Text("In Phone Manager, go to:\nViruses & risks → Block suspicious app activities → More options → Allowlist.")
                         Text("Add $appName. Keep the main blocking switch on. If you already allowed this app under its old name, the same app approval is retained.")
@@ -171,11 +188,20 @@ fun NoResetScreen(onManagedTools: () -> Unit = {}) {
                     SectionCard("How it works", "Closes the menu after it appears.") {
                         Text("The ordinary Power off / Restart menu may be visible briefly. Hardware forced restart and emergency functions remain available.")
                         Text("If ColorOS shows “Abnormal device control” or turns the service off, check this app’s Allowlist entry. Power Pause will not re-enable itself.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text("Verified: OPPO Reno 15 (CPH2825), Android 16, build CPH2825_16.0.10.501(EX01), English menu. Other phones, firmware and languages need testing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text("Verified: OPPO Reno 15 (CPH2825), Android 16, build CPH2825_16.0.10.501(EX01), English menu. Other phones, firmware and languages need testing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 2 -> {
                     Text("Tools & help", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
+                    if (BuildConfig.COMPATIBILITY_EDITION) SectionCard("Older-phone checks", "Optional checks · no automatic profile is created") {
+                        Text("Keep your schedule paused. Observe records only System UI window class, model, Android version and window number in memory. It does not read screen text or send data anywhere. Open the menu briefly, release power and never select Power off or Restart.")
+                        OutlinedButton(onClick = { if (service?.startCompatibilityObservation() != true) message("Connect the service and keep the schedule paused first."); tick++ }, enabled = service != null && !config.enabled, modifier = Modifier.fillMaxWidth()) { Text("Observe only for 45 seconds") }
+                        Text(service?.let { "Observation: ${it.observationSeconds()} seconds left\n${it.observationReport()}" } ?: "Connect Accessibility first.", style = MaterialTheme.typography.bodySmall)
+                        Text("The next check sends one Back after 20 seconds. Start it, then open the power menu while at least 10 seconds remain. If the menu is not open, Back may exit the current screen. Stop cancels it.")
+                        Button(onClick = { if (service?.startCompatibilityBackTrial() != true) message("Connect the service and keep the schedule paused first."); tick++ }, enabled = service != null && !config.enabled && service.manualTrialSeconds() == 0L, colors = actionColors, modifier = Modifier.fillMaxWidth()) { Text("One Back after 20 seconds") }
+                        Text("Back countdown: ${service?.manualTrialSeconds() ?: 0} seconds", style = MaterialTheme.typography.bodySmall)
+                        OutlinedButton(onClick = { stop() }, modifier = Modifier.fillMaxWidth()) { Text("Cancel checks and stop") }
+                    }
                     SectionCard("Try it for one minute", "A temporary test, without changing your daily hours.") {
                         Text(if (remaining > 0) "$remaining seconds remaining" else "Pause the schedule first. Start the test, briefly open the power menu and release the button. Do not select Power off or Restart.")
                         Button(onClick = {

@@ -1,6 +1,6 @@
 # Power Pause: Reno 15 setup and verification
 
-Current editions: use **Simple 0.4.0** for the tested Accessibility workflow. **Advanced 0.4.0** adds experimental managed tools with caution; read ADVANCED_MODE.md. Both retain the existing package and Accessibility component. The older version records below are preserved as evidence, not current download instructions.
+Current release: **Simple 0.4.1** updates the original ordinary app and keeps its package and saved settings. **Advanced 0.4.1** and **Compatibility 0.4.1** now use separate packages and approvals. See SEPARATE_EDITIONS_RELEASE.md and ANDROID10_COMPATIBILITY.md. The historical version records below describe their original builds, not all current APKs.
 
 Updated 8 October 2026. Version 0.2.1 desktop verification passed: 257 tests, zero failures/errors/skipped; lint passed with zero errors and 23 warnings. It was installed over 0.2.0 with the saved schedule and Accessibility approval preserved. The owner subsequently confirmed all requested 0.2.1 time-entry, repeated-menu, expiry and retained-service checks worked; the independent readback and limits are separated below.
 
@@ -49,7 +49,7 @@ A later immediate UI check reported the probe disconnected. Android still listed
 
 ## Set up the final app, one step at a time
 
-1. Install the reviewed Power Pause Simple 0.4.0 APK as an update. Do not uninstall the final app first. Saved hours and approval are retained; check the current status on **Schedule**. A fresh installation starts paused.
+1. Install the reviewed Power Pause Simple 0.4.1 APK as an update. Do not uninstall the final app first. Saved hours and approval are retained; check the current status on **Schedule**. A fresh installation starts paused.
 2. The temporary probe apps have been removed. Leave unrelated apps and services alone.
 3. Open **Setup**, then tap **Open Phone Manager**.
 4. Navigate to **Viruses & risks → Block suspicious app activities → More options → Allowlist**.

@@ -8,7 +8,7 @@ import android.os.Looper
 import android.view.accessibility.AccessibilityEvent
 import android.view.accessibility.AccessibilityNodeInfo
 import android.view.accessibility.AccessibilityWindowInfo
-import com.example.shutdownprotection.ShutdownProtectionApplication
+import com.example.shutdownprotection.BuildConfig
 import com.example.shutdownprotection.ui.MainActivity
 import org.junit.After
 import org.junit.Assert.*
@@ -29,7 +29,7 @@ import org.robolectric.util.ReflectionHelpers
 import java.time.Duration
 
 @RunWith(RobolectricTestRunner::class)
-@Config(sdk = [36], application = ShutdownProtectionApplication::class, shadows = [NoResetAccessibilityShadow::class])
+@Config(sdk = [36], shadows = [NoResetAccessibilityShadow::class])
 class NoResetServiceTest {
     private lateinit var service: NoResetMenuService
     private lateinit var store: NoResetStore
@@ -130,9 +130,13 @@ class NoResetServiceTest {
         assertEquals(1, disableCalls())
     }
     @Test fun ordinaryInstallationDoesNotAttachManagedSessionOnForeground() {
-        val app = RuntimeEnvironment.getApplication() as ShutdownProtectionApplication
+        val app = RuntimeEnvironment.getApplication()
         val controller = Robolectric.buildActivity(MainActivity::class.java).create().start().resume()
-        assertFalse(app.container.lockTaskSession.isEntryAvailable())
+        if (BuildConfig.MANAGED_TOOLS) {
+            val container = app.javaClass.getMethod("getContainer").invoke(app)
+            val session = container.javaClass.getMethod("getLockTaskSession").invoke(container)
+            assertEquals(false, session.javaClass.getMethod("isEntryAvailable").invoke(session))
+        } else assertEquals("com.example.shutdownprotection.NoResetApplication", app.javaClass.name)
         controller.pause().stop().destroy()
     }
 }

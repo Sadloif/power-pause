@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="app_name">Power Pause</string>
+    <string name="app_name">Power Pause Simple</string>
     <string name="no_reset_service_description">Closes the ordinary power menu during your selected hours on the tested Reno 15 firmware. Enable the schedule separately in the app. No reset or Shizuku is needed. The service checks system-window identity and does not read app text or take screenshots.</string>
 
     <!--

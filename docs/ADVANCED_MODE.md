@@ -30,13 +30,13 @@ A fresh or ordinary installation cannot obtain Device Owner authority by pressin
 | Setup and prerequisites | Checks ownership, version, session/recovery and alarm requirements | A passed checklist is not enrollment and does not certify OEM behaviour |
 | Development test controls | Manual managed proof-of-concept controls in debug builds | Absent from downloadable release builds; never experiment on a daily-use phone |
 
-## Edition switching and recovery
+## Separate editions and recovery
 
-Both downloadable APKs intentionally share one application ID and certificate. They can update the existing ordinary installation without creating a second service or discarding saved hours.
+From 0.4.1, Advanced uses `com.example.shutdownprotection.advanced`. Simple retains `com.example.shutdownprotection`; Compatibility uses `com.example.shutdownprotection.compatibility`. The apps can coexist. Each has its own data, Accessibility approval and manufacturer exception. Keep only one Accessibility dismissal service enabled at a time.
 
-**Do not install Simple over this app while it is Device Owner or a managed session is active.** Simple omits the admin/policy/alarm receivers and managed recovery entry points. Replacing managed components in an enrolled installation is outside the validated switching procedure. Use the existing Advanced recovery tools, verify release, and plan management removal on a dedicated device separately before any switch.
+An older 0.4.0 ordinary installation updates to Simple without uninstalling. The new Advanced package starts paused and does not inherit the older package’s enrollment, recovery state, schedule or approval.
 
-For an ordinary unenrolled Reno installation, switching the supplied editions preserves the same Accessibility component and store. Check connection, current schedule state and the app's own ColorOS Allowlist entry afterwards. Switching does not itself grant or revoke Accessibility approval; Android/ColorOS remains responsible for service availability.
+**Never replace an existing enrolled Device Owner package with Simple.** The new Advanced package cannot inherit Device Owner simply by installing it. Existing enrolled devices need their current managed recovery components and a separately planned migration. This release makes no physical managed-device migration claim.
 
 ## References
 

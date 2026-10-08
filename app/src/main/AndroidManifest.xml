@@ -1,131 +1,21 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!--
-  Every declared permission and every exported component here is justified in
-  docs/ARCHITECTURE.md ("Permission and exported-component inventory").
-
-  Deliberately NOT declared, per brief section 6:
-    - USE_EXACT_ALARM          (section 6.4 - would grant exact alarms without a user grant)
-    - INTERNET                 (section 2.6 - no network in the MVP)
-    - QUERY_ALL_PACKAGES       (section 11.5 - the narrow <queries> block below is enough)
-    - contacts / SMS / calls / location / camera / microphone / storage
--->
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-
-    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
-    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
-    <!--
-      POST_NOTIFICATIONS is deliberately NOT declared. Brief section 6.11 is conditional
-      ("If a persistent user-visible status notification is implemented..."), and this MVP
-      implements no status notification: status lives on the main screen, which is always
-      reachable and is never gated on a permission. Declaring an unused permission would be
-      unnecessary privilege, so it is omitted until a notification is actually built.
-    -->
-
-    <!--
-      Narrow package visibility (brief section 11.5). The allowed-applications picker
-      must list the launcher and installed apps, so the two launcher-shaped intent
-      filters are queried explicitly instead of asking for QUERY_ALL_PACKAGES.
-    -->
     <queries>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.HOME" />
-        </intent>
-        <intent>
-            <action android:name="android.intent.action.MAIN" />
-            <category android:name="android.intent.category.LAUNCHER" />
-        </intent>
+        <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.HOME" /></intent>
+        <intent><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent>
     </queries>
-
-    <application
-        android:name=".ShutdownProtectionApplication"
-        android:allowBackup="false"
-        android:dataExtractionRules="@xml/data_extraction_rules"
-        android:fullBackupContent="false"
-        android:label="@string/app_name"
-        android:icon="@mipmap/ic_launcher"
-        android:roundIcon="@mipmap/ic_launcher_round"
-        android:supportsRtl="true"
-        android:theme="@style/Theme.ShutdownProtection">
-
-        <!-- The explicit foreground arm/resume entry point. Not directBootAware: the
-             brief requires entry only from an unlocked foreground activity. -->
-        <activity
-            android:name=".ui.MainActivity"
-            android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
-            android:exported="true"
-            android:launchMode="singleTask">
-            <intent-filter>
-                <action android:name="android.intent.action.MAIN" />
-                <category android:name="android.intent.category.LAUNCHER" />
-            </intent-filter>
+    <application android:name=".NoResetApplication" android:allowBackup="false"
+        android:dataExtractionRules="@xml/data_extraction_rules" android:fullBackupContent="false"
+        android:label="${powerPauseLabel}" android:icon="@mipmap/ic_launcher_bitmap"
+        android:roundIcon="@mipmap/ic_launcher_round_bitmap" android:logo="@mipmap/ic_launcher_bitmap"
+        android:supportsRtl="true" android:theme="@style/Theme.ShutdownProtection">
+        <activity android:name=".ui.MainActivity" android:configChanges="orientation|screenSize|screenLayout|keyboardHidden|uiMode"
+            android:exported="true" android:launchMode="singleTask">
+            <intent-filter><action android:name="android.intent.action.MAIN" /><category android:name="android.intent.category.LAUNCHER" /></intent-filter>
         </activity>
-
-        <!-- Independent no-reset mode, enabled manually by the owner. It never invokes DPC APIs.
-             Android alone can bind it. No network, shell or settings-write permission added. -->
-        <service
-            android:name=".noreset.NoResetMenuService"
-            android:exported="true"
-            android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
-            <intent-filter>
-                <action android:name="android.accessibilityservice.AccessibilityService" />
-            </intent-filter>
+        <service android:name=".noreset.NoResetMenuService" android:exported="true" android:permission="android.permission.BIND_ACCESSIBILITY_SERVICE">
+            <intent-filter><action android:name="android.accessibilityservice.AccessibilityService" /></intent-filter>
             <meta-data android:name="android.accessibilityservice" android:resource="@xml/no_reset_accessibility_service" />
         </service>
-
-        <!-- Device admin receiver. Protected by BIND_DEVICE_ADMIN so no other app can
-             deliver admin callbacks to it. -->
-        <receiver
-            android:name=".admin.ShutdownProtectionAdminReceiver"
-            android:exported="true"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
-            <meta-data
-                android:name="android.app.device_admin"
-                android:resource="@xml/device_admin_receiver" />
-            <intent-filter>
-                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
-            </intent-filter>
-        </receiver>
-
-        <!-- Policy result / policy changed callbacks (brief section 18). Protected by
-             BIND_DEVICE_ADMIN; the callbacks are overridden, not onReceive() (which is
-             declared final on platform 36). Both documented actions are registered. -->
-        <receiver
-            android:name=".admin.LockTaskPolicyUpdateReceiver"
-            android:exported="true"
-            android:permission="android.permission.BIND_DEVICE_ADMIN">
-            <intent-filter>
-                <action android:name="android.app.admin.action.DEVICE_POLICY_SET_RESULT" />
-                <action android:name="android.app.admin.action.DEVICE_POLICY_CHANGED" />
-            </intent-filter>
-        </receiver>
-
-        <!-- App-owned alarm boundaries. exported=false plus explicit-component
-             PendingIntents: no other app can arm or release protection. -->
-        <receiver
-            android:name=".scheduling.ProtectionAlarmReceiver"
-            android:directBootAware="true"
-            android:exported="false" />
-
-        <!-- Legitimate system events (brief section 17). directBootAware so
-             LOCKED_BOOT_COMPLETED is delivered; its dependency (the device-protected
-             DataStore) is readable before unlock by construction. -->
-        <receiver
-            android:name=".scheduling.SystemEventReceiver"
-            android:directBootAware="true"
-            android:exported="false">
-            <intent-filter>
-                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
-                <action android:name="android.intent.action.BOOT_COMPLETED" />
-                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
-                <action android:name="android.intent.action.TIME_SET" />
-                <action android:name="android.intent.action.TIMEZONE_CHANGED" />
-                <action android:name="android.app.action.SCHEDULE_EXACT_ALARM_PERMISSION_STATE_CHANGED" />
-            </intent-filter>
-        </receiver>
-
-        <!-- ACTION_USER_UNLOCKED is not manifest-deliverable; it is registered
-             dynamically by the running component (see ShutdownProtectionApplication). -->
     </application>
-
 </manifest>

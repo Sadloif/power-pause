@@ -19,16 +19,15 @@ val spmTestJavaHome: String? = providers.gradleProperty("spm.testJavaHome").orNu
 
 android {
     namespace = "com.example.shutdownprotection"
-    // Brief section 3.1 mandates compile/min/target SDK 36. Do NOT copy minSdk 26
-    // from the Linksi precedent - that lower minimum belongs to Linksi only.
+    // Compile/target stay 36. The separate compatibility flavor supports API 29+.
     compileSdk = 36
 
     defaultConfig {
         applicationId = spmAppId
         minSdk = 36
         targetSdk = 36
-        versionCode = 5
-        versionName = "0.4.0"
+        versionCode = 6
+        versionName = "0.4.1"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
@@ -37,10 +36,23 @@ android {
         create("simple") {
             dimension = "edition"
             buildConfigField("boolean", "MANAGED_TOOLS", "false")
+            buildConfigField("boolean", "COMPATIBILITY_EDITION", "false")
+            manifestPlaceholders["powerPauseLabel"] = "Power Pause Simple"
+        }
+        create("compatibility") {
+            dimension = "edition"
+            applicationIdSuffix = ".compatibility"
+            minSdk = 29
+            buildConfigField("boolean", "MANAGED_TOOLS", "false")
+            buildConfigField("boolean", "COMPATIBILITY_EDITION", "true")
+            manifestPlaceholders["powerPauseLabel"] = "Power Pause Compatibility"
         }
         create("advanced") {
             dimension = "edition"
             buildConfigField("boolean", "MANAGED_TOOLS", "true")
+            buildConfigField("boolean", "COMPATIBILITY_EDITION", "false")
+            applicationIdSuffix = ".advanced"
+            manifestPlaceholders["powerPauseLabel"] = "Power Pause Advanced"
         }
     }
 
@@ -116,7 +128,9 @@ android {
 // Configure the actual Test tasks so app compilation stays on Java 17 while Robolectric runs
 // on the JDK 21 executable required by Android API 36.
 tasks.withType<Test>().configureEach {
-    if (name.startsWith("testSimple")) {
+    // Use the official Maven Central endpoint for Robolectric's Android runtimes.
+    systemProperty("robolectric.dependency.repo.url", "https://repo.maven.apache.org/maven2")
+    if (name.startsWith("testSimple") || name.startsWith("testCompatibility")) {
         // Managed regression tests belong to Advanced. Simple executes its actual
         // service/gate tests plus manifest/startup edition-isolation checks.
         filter {
@@ -183,7 +197,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-runtime-compose:2.7.0")
 
     // DataStore Preferences: one instance per file (brief section 7.7).
-    implementation("androidx.datastore:datastore-preferences:1.1.7")
+    "advancedImplementation"("androidx.datastore:datastore-preferences:1.1.7")
 
     // Kotlin coroutines.
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.7.3")

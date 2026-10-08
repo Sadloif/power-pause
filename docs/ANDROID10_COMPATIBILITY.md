@@ -10,7 +10,13 @@ Automatic menu recognition remains restricted to the physically tested Reno CPH2
 
 Unknown phones can use two optional checks in Tools: read-only System UI event observation for 45 seconds and one owner-requested Back after 20 seconds. Neither learns a profile, enables a schedule or proves automatic protection. Events are bounded to eight records in memory containing model, API, System UI class and window ID. No screen text, node children or screenshots are collected or uploaded. Stop, interruption and disconnect cancel pending Back; schedule edits invalidate it; a late callback is discarded. The service stays approved after a normal test ends.
 
-## Poco X3 Pro / Android 12: next physical test
+## Poco X3 Pro / Android 13: physical checks
+
+8 October 2026: the connected spare phone reported model M2102J20SG, Android 13 / API 33 and MIUI build V14.0.3.0.TJUMIXM. Simple 0.4.1 was refused with INSTALL_FAILED_OLDER_SDK because it requires API 36. Compatibility 0.4.1 installed and opened successfully. Its Accessibility service was approved by the owner and independently listed as enabled and bound by Android.
+
+During the owner-requested observation, the app recorded a System UI window event with class android.app.Dialog. A read-only window-manager check identified the visible power menu as MiuiGlobalActions. The Accessibility window had a null title. These observations establish event delivery, not automatic recognition or dismissal. Matching every System UI android.app.Dialog would be too broad. Automatic protection on this Poco remains unavailable pending a sufficiently specific profile and physical validation.
+
+The owner subsequently confirmed that the explicit one-Back trial closed the menu after approximately 20 seconds. After that trial, Android still listed the Compatibility service as enabled and bound with no crashed service, and the visible app showed both temporary countdowns at zero. This proves a manually requested dismissal on this firmware. It does not prove an automatic schedule, repeated automatic detection, locked/background behavior or long-term service availability. No reset, data clearing, enrollment, reboot or shutdown was performed. The Reno was not connected or changed.
 
 1. Use the spare phone. Keep the main Reno’s Simple installation unchanged.
 2. Install `Power-Pause-Compatibility-0.4.1.apk`. Open it and confirm Compatibility preview and paused state.
@@ -23,5 +29,13 @@ Unknown phones can use two optional checks in Tools: read-only System UI event o
 9. Before adding automatic support, a developer must implement an exact firmware/event/window profile and prove that unrelated System UI dialogs remain untouched. Then perform repeated menu openings, Stop/expiry, background/locked and service lifetime tests. Do not enable broad matching merely on package `com.android.systemui`.
 
 ## Platform evidence
+
+### Avoid interfering with Accessibility while checking it
+
+Do not run the stock `uiautomator dump` during a service-lifetime, observation or dismissal test. Android [UiAutomation](https://developer.android.com/reference/android/app/UiAutomation#FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES) suppresses other Accessibility services by default unless FLAG_DONT_SUPPRESS_ACCESSIBILITY_SERVICES is supplied. The [stock wrapper](https://android.googlesource.com/platform/prebuilts/fullsdk/sources/android-31/+/refs/heads/main/com/android/uiautomator/core/UiAutomationShellWrapper.java) connects without that flag.
+
+The Poco investigation exposed this interference: screen-text inspection coincided with a disconnected app status, while screenshots and Android's direct Accessibility state showed the service connected. In this app, a service reconnect intentionally cancels temporary tests and observation. Such inspection can therefore invalidate a test. Use direct `dumpsys accessibility`, screenshots and the owner's observation instead, or a separately validated inspector that explicitly preserves existing services.
+
+Earlier disconnected readings collected during stock hierarchy inspection cannot by themselves establish an OEM service failure. Actual owner-observed service disablement and manufacturer blocking notices remain separate evidence. Do not assume every disconnect is caused by this inspector either.
 
 Android’s [build variants](https://developer.android.com/build/build-variants) support different minimum SDKs and source sets. [AccessibilityService](https://developer.android.com/reference/android/accessibilityservice/AccessibilityService) exposes global Back and window events on versions covered here. Availability of an API does not establish OEM window identity or reliability. Android’s [AOSP GlobalActionsDialogLite source](https://android.googlesource.com/platform/frameworks/base/+/aae87b9485629fd876903bbabba6443bae21fc65/packages/SystemUI/src/com/android/systemui/globalactions/GlobalActionsDialogLite.java) illustrates another implementation; the observed OPPO class is manufacturer-specific. This is why support needs per-device evidence.

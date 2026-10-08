@@ -27,6 +27,7 @@ The APKs are signed local release builds, not Play Store production releases. Si
 - Simple and Advanced require Android 16 / API 36. The separate Compatibility APK can install on Android 10 and later, including Android 12. Installation support is different from verified menu recognition.
 - Accessibility dismissal is deliberately limited to the physically tested OPPO Reno 15 5G, model CPH2825, display build `CPH2825_16.0.10.501(EX01)` and the observed English menu.
 - No blanket compatibility is claimed for other phones, firmware or languages.
+- On a POCO X3 Pro with Android 13 / MIUI 14, Compatibility 0.4.1 installed and its explicit 20-second Back trial closed the menu. Automatic scheduling is still unavailable on that phone; see the [physical check results](docs/ANDROID10_COMPATIBILITY.md).
 - ColorOS needs this app's own Phone Manager Allowlist entry. Android/ColorOS can still disconnect or disable Accessibility; the app reports unavailability and does not re-enable itself.
 - Hardware forced restart, emergency functions, battery loss and other shutdown paths remain outside the guarantee. This app does not make a phone impossible to turn off.
 - Long-duration, reboot/Doze and a fully observed wall-clock boundary sequence still need separate physical testing.

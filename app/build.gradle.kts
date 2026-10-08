@@ -43,6 +43,8 @@ android {
             dimension = "edition"
             applicationIdSuffix = ".compatibility"
             minSdk = 29
+            versionCode = 7
+            versionName = "0.4.2"
             buildConfigField("boolean", "MANAGED_TOOLS", "false")
             buildConfigField("boolean", "COMPATIBILITY_EDITION", "true")
             manifestPlaceholders["powerPauseLabel"] = "Power Pause Compatibility"

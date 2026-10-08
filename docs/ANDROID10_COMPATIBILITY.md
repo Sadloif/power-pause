@@ -1,4 +1,4 @@
-# Android 10+ Compatibility edition — installation preview
+# Android 10+ Compatibility edition
 
 This is a separate Simple app, minimum Android 10 / API 29, package `com.example.shutdownprotection.compatibility`. It contains no managed-device implementation or Device Admin receivers. No factory reset, enrollment, root or running Shizuku is required.
 
@@ -6,11 +6,13 @@ This is a separate Simple app, minimum Android 10 / API 29, package `com.example
 
 The older-version APK and Simple interface are built for Android 10+. Framework tests execute application/activity launch, edition isolation and explicit Back trials on API 29 through 36. These checks are simulated Android framework execution, not phone observations.
 
-Automatic menu recognition remains restricted to the physically tested Reno CPH2825, Android 16, exact build `CPH2825_16.0.10.501(EX01)` and observed English menu. On Android 10–15 or another firmware, automatic schedule and the 60-second automatic trial remain unavailable. Changing minimum SDK cannot create a correct OEM menu detector. The Compatibility title and status explicitly disclose this limitation.
+Compatibility 0.4.2 recognizes the tested Reno CPH2825 / Android 16 / build `CPH2825_16.0.10.501(EX01)` profile and the Poco X3 Pro M2102J20SG / Android 13 / Xiaomi / display `TKQ1.221013.002 test-keys` / incremental `V14.0.3.0.TJUMIXM` profile. Both require the observed English menu. Other firmware stays inactive. Changing minimum SDK cannot create a correct OEM detector. See [0.4.2 results and step-by-step setup](POCO_COMPATIBILITY_RELEASE.md) for actual checks, the initial failed trial and remaining physical checks.
 
 Unknown phones can use two optional checks in Tools: read-only System UI event observation for 45 seconds and one owner-requested Back after 20 seconds. Neither learns a profile, enables a schedule or proves automatic protection. Events are bounded to eight records in memory containing model, API, System UI class and window ID. No screen text, node children or screenshots are collected or uploaded. Stop, interruption and disconnect cancel pending Back; schedule edits invalidate it; a late callback is discarded. The service stays approved after a normal test ends.
 
-## Poco X3 Pro / Android 13: physical checks
+## Historical 0.4.1 Poco X3 Pro / Android 13 checks
+
+The following records the initial 0.4.1 investigation. Its statement that automatic protection was unavailable describes that older version. The 0.4.2 detector and successful automatic actual-phone tests are recorded separately above.
 
 8 October 2026: the connected spare phone reported model M2102J20SG, Android 13 / API 33 and MIUI build V14.0.3.0.TJUMIXM. Simple 0.4.1 was refused with INSTALL_FAILED_OLDER_SDK because it requires API 36. Compatibility 0.4.1 installed and opened successfully. Its Accessibility service was approved by the owner and independently listed as enabled and bound by Android.
 

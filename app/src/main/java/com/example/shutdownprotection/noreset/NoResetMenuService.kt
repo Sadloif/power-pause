@@ -9,6 +9,7 @@ import android.os.Handler
 import android.os.Looper
 import android.os.SystemClock
 import android.view.accessibility.AccessibilityEvent
+import android.view.accessibility.AccessibilityNodeInfo
 import com.example.shutdownprotection.BuildConfig
 import java.time.Instant
 
@@ -50,6 +51,8 @@ class NoResetMenuService : AccessibilityService() {
         if (instance !== this || eligibilityProblem != null || !supported() || !store.read().valid || store.read().enabled) return false
         interrupted = false // A new explicit test is the owner's resume action.
         handler.removeCallbacksAndMessages(null)
+        observationDeadline = 0
+        manualTrialDeadline = 0
         generation++
         testDeadline = SystemClock.elapsedRealtime() + 60_000
         handler.postDelayed({
@@ -112,7 +115,7 @@ class NoResetMenuService : AccessibilityService() {
     }
 
     private fun compatibilityTrialAllowed(): Boolean = BuildConfig.COMPATIBILITY_EDITION &&
-        instance === this && !interrupted && store.read().let { it.valid && !it.enabled } &&
+        instance === this && !interrupted && secondsRemaining() == 0L && store.read().let { it.valid && !it.enabled } &&
         runCatching { getSystemService(DevicePolicyManager::class.java).isDeviceOwnerApp(packageName) == false }.getOrDefault(false)
 
     fun manualTrialSeconds(): Long = ((manualTrialDeadline - SystemClock.elapsedRealtime() + 999) / 1000).coerceAtLeast(0)
@@ -142,8 +145,13 @@ class NoResetMenuService : AccessibilityService() {
                 observations.addLast(entry)
             }
         }
-        if (instance !== this || event == null || !RenoMenuFingerprint.event(event.eventType,
-                event.packageName?.toString(), event.className?.toString())) return
+        if (instance !== this || event == null) return
+        val profile = profile() ?: return
+        val matchesEvent = when (profile) {
+            MenuProfile.RENO -> RenoMenuFingerprint.event(event.eventType, event.packageName?.toString(), event.className?.toString())
+            MenuProfile.POCO -> PocoMenuFingerprint.event(event.eventType, event.packageName?.toString(), event.className?.toString())
+        }
+        if (!matchesEvent) return
         val config = store.read()
         if (!active(config) || event.windowId in handledWindows) return
         val candidate = ++generation
@@ -158,8 +166,13 @@ class NoResetMenuService : AccessibilityService() {
             val root = window?.root
             if (window != null && root != null) {
                 val matches = try {
-                    RenoMenuFingerprint.window(window.id, id, window.type, window.isActive, window.isFocused,
-                        root.packageName?.toString(), root.className?.toString(), window.title?.toString())
+                    when (profile()) {
+                        MenuProfile.RENO -> RenoMenuFingerprint.window(window.id, id, window.type, window.isActive, window.isFocused,
+                            root.packageName?.toString(), root.className?.toString(), window.title?.toString())
+                        MenuProfile.POCO -> PocoMenuFingerprint.window(window.id, id, window.type, window.isActive, window.isFocused,
+                            root.packageName?.toString(), root.className?.toString(), window.title?.toString()) && pocoHierarchy(root)
+                        null -> false
+                    }
                 } finally { @Suppress("DEPRECATION") root.recycle() }
                 // Re-evaluate durable intent and the clock immediately before the action.
                 val latest = store.read()
@@ -186,6 +199,27 @@ class NoResetMenuService : AccessibilityService() {
         }
         // Retry only metadata arrival, never an already requested Back. Faster 20ms checks.
         if (attempt < 6) handler.postDelayed({ dismiss(id, candidate, revision, attempt + 1, eventTime, receivedAt) }, 20)
+    }
+
+    private fun pocoHierarchy(root: AccessibilityNodeInfo): Boolean {
+        val nodes = ArrayList<MenuNode>(9)
+        fun snapshot(node: AccessibilityNodeInfo) = MenuNode(node.packageName?.toString(), node.className?.toString(),
+            node.viewIdResourceName, node.contentDescription?.toString(), node.childCount)
+        fun descend(node: AccessibilityNodeInfo, depth: Int): Boolean {
+            nodes.add(snapshot(node))
+            if (depth < 3) {
+                if (node.childCount != 1) return false
+                val child = node.getChild(0) ?: return false
+                return try { descend(child, depth + 1) } finally { @Suppress("DEPRECATION") child.recycle() }
+            }
+            if (node.childCount != 5) return false
+            for (index in 0..4) {
+                val child = node.getChild(index) ?: return false
+                try { nodes.add(snapshot(child)) } finally { @Suppress("DEPRECATION") child.recycle() }
+            }
+            return true
+        }
+        return descend(root, 0) && PocoMenuFingerprint.hierarchy(nodes)
     }
 
     override fun onInterrupt() {
@@ -218,7 +252,8 @@ class NoResetMenuService : AccessibilityService() {
             private set
         var actionCount: Int = 0
             private set
-        fun supported(): Boolean = Build.MODEL == "CPH2825" && Build.VERSION.SDK_INT == 36 &&
-            Build.DISPLAY == "CPH2825_16.0.10.501(EX01)"
+        fun profile(): MenuProfile? = MenuProfiles.select(BuildConfig.COMPATIBILITY_EDITION, Build.MODEL,
+            Build.VERSION.SDK_INT, Build.DISPLAY, Build.VERSION.INCREMENTAL, Build.MANUFACTURER)
+        fun supported(): Boolean = profile() != null
     }
 }

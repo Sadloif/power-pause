@@ -1,6 +1,8 @@
 package com.example.shutdownprotection.ui
 
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
 import android.provider.Settings
 import android.widget.Toast
 import androidx.compose.foundation.layout.*
@@ -33,7 +35,7 @@ fun NoResetScreen(onManagedTools: () -> Unit = {}) {
     val appName = stringResource(R.string.app_name)
     val edition = when {
         BuildConfig.MANAGED_TOOLS -> "Advanced edition"
-        BuildConfig.COMPATIBILITY_EDITION -> "Android 10+ compatibility preview"
+        BuildConfig.COMPATIBILITY_EDITION -> "Android 10+ Compatibility edition"
         else -> "Simple · tested Reno edition"
     }
     val store = remember { NoResetStore(context) }
@@ -53,6 +55,8 @@ fun NoResetScreen(onManagedTools: () -> Unit = {}) {
     @Suppress("UNUSED_VARIABLE") val refresh = tick
     val service = NoResetMenuService.instance
     val supported = NoResetMenuService.supported()
+    val poco = NoResetMenuService.profile() == MenuProfile.POCO
+    val colorOs = Build.MANUFACTURER.equals("OPPO", ignoreCase = true)
     val remaining = service?.secondsRemaining() ?: 0
     val scheduledNow = remember(config, tick) { NoResetGate().mayDismiss(config, Instant.now(), 0) }
     val ready = supported && service?.ready() == true && config.valid
@@ -168,8 +172,18 @@ fun NoResetScreen(onManagedTools: () -> Unit = {}) {
                 1 -> {
                     Text("One-time setup", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
                     Text("No factory reset or running Shizuku needed.", color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    if (BuildConfig.COMPATIBILITY_EDITION) Text("Android 10+ installation preview. Automatic schedules are available only on the verified Reno firmware. On another phone, use the optional checks in Tools; a successful single Back does not enable automatic protection.", color = MaterialTheme.colorScheme.error)
+                    if (BuildConfig.COMPATIBILITY_EDITION) Text(if (supported)
+                        "Automatic dismissal is available on this tested firmware. Other phones and software updates need separate verification."
+                        else "This app installs on Android 10+, but automatic dismissal is unavailable on this firmware. Optional checks in Tools do not enable protection.",
+                        color = if (supported) MaterialTheme.colorScheme.onSurfaceVariant else MaterialTheme.colorScheme.error)
                     Text("Keep only one Power Pause edition’s Accessibility service enabled at a time. Each edition has separate settings and approval.", style = MaterialTheme.typography.bodySmall)
+                    if (!colorOs) SectionCard("1. Keep the service available", if (poco) "MIUI can stop apps in the background." else "Android can stop apps in the background.") {
+                        Text("After enabling Accessibility, confirm the connection card here. Stop and test expiry keep the service enabled. If Android disconnects it, protection is unavailable until you reconnect it in Accessibility settings.")
+                        OutlinedButton(onClick = {
+                            runCatching { context.startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.parse("package:${context.packageName}"))) }
+                                .onFailure { message("Open this app’s information in Android Settings.") }
+                        }, modifier = Modifier.fillMaxWidth()) { Text("Open app settings") }
+                    } else {
                     SectionCard("1. Allow $appName", "Prevent ColorOS from blocking the service.") {
                         Text("In Phone Manager, go to:\nViruses & risks → Block suspicious app activities → More options → Allowlist.")
                         Text("Add $appName. Keep the main blocking switch on. If you already allowed this app under its old name, the same app approval is retained.")
@@ -179,7 +193,8 @@ fun NoResetScreen(onManagedTools: () -> Unit = {}) {
                         }, modifier = Modifier.fillMaxWidth()) { Text("Open Phone Manager") }
                         Text("Power Pause cannot check your Allowlist entry. Confirm it in Phone Manager.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
-                    SectionCard("2. Enable Accessibility", if (service?.ready() == true) "Service connected" else "Service unavailable or interrupted") {
+                    }
+                    SectionCard("2. Enable Accessibility", if (service != null) "Service connected" else "Service not connected") {
                         Text("Open downloaded apps/services and enable $appName. Then return here to set your hours. Enabling the service alone does not turn on a new schedule.")
                         OutlinedButton(onClick = {
                             runCatching { context.startActivity(Intent(Settings.ACTION_ACCESSIBILITY_SETTINGS)) }.onFailure { message("Open Accessibility settings manually.") }
@@ -187,13 +202,15 @@ fun NoResetScreen(onManagedTools: () -> Unit = {}) {
                     }
                     SectionCard("How it works", "Closes the menu after it appears.") {
                         Text("The ordinary Power off / Restart menu may be visible briefly. Hardware forced restart and emergency functions remain available.")
-                        Text("If ColorOS shows “Abnormal device control” or turns the service off, check this app’s Allowlist entry. Power Pause will not re-enable itself.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                    Text("Verified: OPPO Reno 15 (CPH2825), Android 16, build CPH2825_16.0.10.501(EX01), English menu. Other phones, firmware and languages need testing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(if (!colorOs) "Power Pause does not turn Accessibility off when a test ends. Android can disconnect the service; the app will not re-enable itself."
+                            else "If ColorOS shows “Abnormal device control” or turns the service off, check this app’s Allowlist entry. Power Pause will not re-enable itself.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    Text(if (poco) "POCO X3 Pro (M2102J20SG), Android 13, MIUI V14.0.3.0.TJUMIXM, English power-menu labels. Other firmware and languages need testing."
+                        else "OPPO Reno 15 (CPH2825), Android 16, build CPH2825_16.0.10.501(EX01), English menu. Other phones, firmware and languages need testing.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     }
                 }
                 2 -> {
                     Text("Tools & help", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold)
-                    if (BuildConfig.COMPATIBILITY_EDITION) SectionCard("Older-phone checks", "Optional checks · no automatic profile is created") {
+                    if (BuildConfig.COMPATIBILITY_EDITION && !supported) SectionCard("Older-phone checks", "Optional checks · no automatic profile is created") {
                         Text("Keep your schedule paused. Observe records only System UI window class, model, Android version and window number in memory. It does not read screen text or send data anywhere. Open the menu briefly, release power and never select Power off or Restart.")
                         OutlinedButton(onClick = { if (service?.startCompatibilityObservation() != true) message("Connect the service and keep the schedule paused first."); tick++ }, enabled = service != null && !config.enabled, modifier = Modifier.fillMaxWidth()) { Text("Observe only for 45 seconds") }
                         Text(service?.let { "Observation: ${it.observationSeconds()} seconds left\n${it.observationReport()}" } ?: "Connect Accessibility first.", style = MaterialTheme.typography.bodySmall)

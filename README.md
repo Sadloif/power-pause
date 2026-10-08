@@ -13,7 +13,7 @@ Download an APK from [Releases](https://github.com/Sadloif/power-pause/releases/
 | Edition | Android requirement | Package ID | Purpose |
 |---|---|---|---|
 | **Simple — recommended for the tested Reno** | Android 16 / API 36+ | `com.example.shutdownprotection` | Working Accessibility schedule, Stop and 60-second trial; managed code excluded |
-| **Compatibility — preview for older Androids** | Android 10 / API 29+ | `com.example.shutdownprotection.compatibility` | Simple interface and optional device checks; unknown firmware cannot arm automatic dismissal |
+| **Compatibility — tested Poco and Reno profiles** | Android 10 / API 29+ | `com.example.shutdownprotection.compatibility` | Simple interface; automatic dismissal on the exact profiles below; unknown firmware stays inactive |
 | **Advanced — experimental** | Android 16 / API 36+ | `com.example.shutdownprotection.advanced` | Accessibility plus managed-device tools, with caution and confirmation |
 
 All three can be installed together. **Enable only one edition’s Accessibility service at a time.** Different packages have separate hours, Accessibility approval and manufacturer Allowlist entries. Simple keeps the original package and certificate, so it updates the existing ordinary installation without uninstalling or discarding saved hours. Advanced and Compatibility are separate fresh installations and start paused.
@@ -25,9 +25,9 @@ The APKs are signed local release builds, not Play Store production releases. Si
 ## Compatibility and honest limits
 
 - Simple and Advanced require Android 16 / API 36. The separate Compatibility APK can install on Android 10 and later, including Android 12. Installation support is different from verified menu recognition.
-- Accessibility dismissal is deliberately limited to the physically tested OPPO Reno 15 5G, model CPH2825, display build `CPH2825_16.0.10.501(EX01)` and the observed English menu.
+- Simple's Accessibility dismissal is limited to the tested OPPO Reno 15 5G, model CPH2825, Android 16, display build `CPH2825_16.0.10.501(EX01)` and observed English menu. Compatibility also includes this profile.
 - No blanket compatibility is claimed for other phones, firmware or languages.
-- On a POCO X3 Pro with Android 13 / MIUI 14, Compatibility 0.4.1 installed and its explicit 20-second Back trial closed the menu. Automatic scheduling is still unavailable on that phone; see the [physical check results](docs/ANDROID10_COMPATIBILITY.md).
+- Compatibility 0.4.2 adds automatic recognition for POCO X3 Pro M2102J20SG, Android 13, Xiaomi, display `TKQ1.221013.002 test-keys`, incremental `V14.0.3.0.TJUMIXM`, and the captured English menu. Actual-phone checks passed repeated foreground, background and securely locked dismissal, unrelated quick settings and trial expiry. The corrected build's physical-button repetition, Stop and wall-clock boundary checks remain pending; see the [detailed results and setup](docs/POCO_COMPATIBILITY_RELEASE.md).
 - ColorOS needs this app's own Phone Manager Allowlist entry. Android/ColorOS can still disconnect or disable Accessibility; the app reports unavailability and does not re-enable itself.
 - Hardware forced restart, emergency functions, battery loss and other shutdown paths remain outside the guarantee. This app does not make a phone impossible to turn off.
 - Long-duration, reboot/Doze and a fully observed wall-clock boundary sequence still need separate physical testing.
@@ -72,7 +72,8 @@ The application name is declared explicitly per edition in Android’s manifest.
 
 ## Documentation
 
-- [Android 10+ compatibility preview and physical test guide](docs/ANDROID10_COMPATIBILITY.md)
+- [Android 10+ compatibility and physical test guide](docs/ANDROID10_COMPATIBILITY.md)
+- [Compatibility 0.4.2: Poco detector, tests and setup](docs/POCO_COMPATIBILITY_RELEASE.md)
 - [Advanced tools: caution, benefits and options](docs/ADVANCED_MODE.md)
 - [Accessibility setup, physical evidence and limits](docs/NO_RESET_MODE.md)
 - [Architecture](docs/ARCHITECTURE.md)

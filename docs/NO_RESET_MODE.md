@@ -1,6 +1,6 @@
 # Power Pause: Reno 15 setup and verification
 
-Current release: **Simple 0.4.1** updates the original ordinary app and keeps its package and saved settings. **Advanced 0.4.1** and **Compatibility 0.4.1** now use separate packages and approvals. See SEPARATE_EDITIONS_RELEASE.md and ANDROID10_COMPATIBILITY.md. The historical version records below describe their original builds, not all current APKs.
+Current editions: **Simple 0.4.1** updates the original ordinary app and keeps its package and saved settings. **Advanced 0.4.1** and **Compatibility 0.4.2** use separate packages and approvals. Compatibility 0.4.2 adds a narrowly matched Poco Android 13 profile; see [its current results and setup](POCO_COMPATIBILITY_RELEASE.md). The Reno-only statements and version records below describe Simple or historical builds, not every current APK.
 
 Updated 8 October 2026. Version 0.2.1 desktop verification passed: 257 tests, zero failures/errors/skipped; lint passed with zero errors and 23 warnings. It was installed over 0.2.0 with the saved schedule and Accessibility approval preserved. The owner subsequently confirmed all requested 0.2.1 time-entry, repeated-menu, expiry and retained-service checks worked; the independent readback and limits are separated below.
 

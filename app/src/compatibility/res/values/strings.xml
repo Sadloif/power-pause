@@ -1,3 +1,4 @@
 <resources>
     <string name="app_name">Power Pause Compatibility</string>
+    <string name="no_reset_service_description">Closes the ordinary power menu during your selected hours on specific Reno 15 and POCO X3 Pro firmware. Enable the schedule separately in the app. It checks System UI menu layout and accessibility labels, without reading other apps\' text or taking screenshots. No reset or running Shizuku is needed.</string>
 </resources>

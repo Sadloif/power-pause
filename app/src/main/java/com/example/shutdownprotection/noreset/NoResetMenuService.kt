@@ -21,6 +21,9 @@ class NoResetMenuService : AccessibilityService() {
     private var generation = 0L
     private var testDeadline = 0L
     private var renoPasswordTrial = false
+    private var authTrialStartedElapsed = 0L
+    private var authTrialDiagnosticCount = 0
+    private var authTrialLastMenuLogElapsed = 0L
     private var interrupted = false
     private var eligibilityProblem: String? = null
     private var observationDeadline = 0L
@@ -29,9 +32,11 @@ class NoResetMenuService : AccessibilityService() {
     private val handledWindows = LinkedHashSet<Int>()
     private val handledAuthWindows = LinkedHashSet<Int>()
     private val renoShutdown = RenoShutdownContext()
+    private var renoMenuMonitorRunnable: Runnable? = null
     private val changes = SharedPreferences.OnSharedPreferenceChangeListener { _, _ ->
         generation++
         manualTrialDeadline = 0
+        cancelRenoMenuMonitor()
         renoShutdown.clear()
         if (renoPasswordTrial) {
             renoPasswordTrial = false
@@ -42,6 +47,7 @@ class NoResetMenuService : AccessibilityService() {
 
     override fun onServiceConnected() {
         super.onServiceConnected()
+        cancelRenoMenuMonitor()
         handler.removeCallbacksAndMessages(null)
         store = NoResetStore(this)
         refreshEligibility()
@@ -62,6 +68,7 @@ class NoResetMenuService : AccessibilityService() {
         refreshEligibility()
         if (instance !== this || eligibilityProblem != null || !supported() || !store.read().valid || store.read().enabled) return false
         interrupted = false // A new explicit test is the owner's resume action.
+        cancelRenoMenuMonitor()
         handler.removeCallbacksAndMessages(null)
         renoPasswordTrial = false
         observationDeadline = 0
@@ -72,6 +79,7 @@ class NoResetMenuService : AccessibilityService() {
         handler.postDelayed({
             testDeadline = 0
             generation++
+            cancelRenoMenuMonitor()
             renoShutdown.clear()
             lastResult = "60-second test ended."
             recordLifecycle("test_expired", "Accessibility remains enabled; no temporary dismissal remains.")
@@ -85,17 +93,22 @@ class NoResetMenuService : AccessibilityService() {
         val config = store.read()
         if (!renoAuthEnabled() || instance !== this || interrupted || eligibilityProblem != null ||
             !config.valid || config.enabled || secondsRemaining() > 0) return false
+        cancelRenoMenuMonitor()
         handler.removeCallbacksAndMessages(null)
         observationDeadline = 0
         manualTrialDeadline = 0
         generation++
         renoShutdown.clear()
         renoPasswordTrial = true
+        authTrialStartedElapsed = SystemClock.elapsedRealtime()
+        authTrialDiagnosticCount = 0
+        authTrialLastMenuLogElapsed = 0
         testDeadline = SystemClock.elapsedRealtime() + 60_000
         handler.postDelayed({
             renoPasswordTrial = false
             testDeadline = 0
             generation++
+            cancelRenoMenuMonitor()
             renoShutdown.clear()
             lastResult = "60-second password cancellation test ended."
             recordLifecycle("test_expired", "Accessibility remains enabled; no temporary dismissal remains.")
@@ -107,6 +120,7 @@ class NoResetMenuService : AccessibilityService() {
 
     fun stop(): Boolean {
         renoPasswordTrial = false
+        cancelRenoMenuMonitor()
         renoShutdown.clear()
         generation++
         testDeadline = 0
@@ -123,7 +137,7 @@ class NoResetMenuService : AccessibilityService() {
         return saved
     }
 
-    fun resumeAfterSave() { renoPasswordTrial = false; renoShutdown.clear(); refreshEligibility(); interrupted = false; generation++; testDeadline = 0; observationDeadline = 0; manualTrialDeadline = 0; handler.removeCallbacksAndMessages(null) }
+    fun resumeAfterSave() { renoPasswordTrial = false; cancelRenoMenuMonitor(); renoShutdown.clear(); refreshEligibility(); interrupted = false; generation++; testDeadline = 0; observationDeadline = 0; manualTrialDeadline = 0; handler.removeCallbacksAndMessages(null) }
     fun stopAndDisable() { stop(); recordLifecycle("explicit_service_disable", "Owner selected Stop and turn off service."); disableSelf() }
     fun secondsRemaining(): Long = ((testDeadline - SystemClock.elapsedRealtime() + 999) / 1000).coerceAtLeast(0)
     fun ready(): Boolean = instance === this && !interrupted && eligibilityProblem == null
@@ -178,6 +192,30 @@ class NoResetMenuService : AccessibilityService() {
     private fun active(config: NoResetConfig): Boolean = ready() && supported() &&
         gate.mayDismiss(config, Instant.now(), SystemClock.elapsedRealtime(), testDeadline)
 
+    private fun authTrialLog(message: String) {
+        if (!renoPasswordTrialActive() || authTrialDiagnosticCount >= 120) return
+        val trialElapsed = (SystemClock.elapsedRealtime() - authTrialStartedElapsed).coerceAtLeast(0)
+        authTrialDiagnosticCount++
+        android.util.Log.i("PowerPauseAuthTrial", "seq=$authTrialDiagnosticCount trialElapsedMs=$trialElapsed $message")
+    }
+
+    private fun authTrialContextInfo(revision: Long): String {
+        if (!renoPasswordTrialActive()) return ""
+        val now = SystemClock.elapsedRealtime()
+        val snapshot = renoShutdown.peek(revision, now)
+        return " menuWindow=${snapshot?.menuWindowId ?: -1} lastMenuAgeMs=${snapshot?.let { now - it.lastVerifiedMenuElapsed } ?: -1} episode=${snapshot?.episodeId ?: -1}"
+    }
+
+    private fun authNodesSummary(nodes: List<RenoAuthNode>): String = nodes.take(15).joinToString(",") {
+        "${it.clazz?.take(80) ?: "?"}@${it.id?.take(120) ?: "-"}:${it.children}"
+    }
+
+    private data class RenoAuthHierarchyResult(
+        val matched: Boolean,
+        val headingMatched: Boolean,
+        val nodes: List<RenoAuthNode>,
+    )
+
     override fun onAccessibilityEvent(event: AccessibilityEvent?) {
         if (instance === this && event != null && BuildConfig.COMPATIBILITY_EDITION &&
             SystemClock.elapsedRealtime() < observationDeadline && event.eventType == AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED &&
@@ -191,9 +229,26 @@ class NoResetMenuService : AccessibilityService() {
         if (instance !== this || event == null) return
         val profile = profile() ?: return
         val config = store.read()
-        if (!active(config)) { renoShutdown.clear(); return }
+        if (!active(config)) { cancelRenoMenuMonitor(); renoShutdown.clear(); return }
         if (renoAuthEnabled() && RenoAuthFingerprint.event(event.eventType, event.packageName?.toString(), event.className?.toString())) {
-            if (event.windowId < 0 || event.windowId in handledAuthWindows || !renoShutdown.permits(config.revision, SystemClock.elapsedRealtime())) return
+            val trial = renoPasswordTrialActive()
+            val receivedUptime = SystemClock.uptimeMillis()
+            val ageMs = receivedUptime - event.eventTime
+            if (event.windowId < 0) {
+                if (trial) authTrialLog("auth_event=refused reason=invalid_id window=${event.windowId} eventUptime=${event.eventTime} receiveUptime=$receivedUptime ageMs=$ageMs revision=${config.revision} generation=$generation")
+                return
+            }
+            if (event.windowId in handledAuthWindows) {
+                if (trial) authTrialLog("auth_event=refused reason=dedupe window=${event.windowId} eventUptime=${event.eventTime} receiveUptime=$receivedUptime ageMs=$ageMs revision=${config.revision} generation=$generation")
+                return
+            }
+            val contextAtEvent = renoShutdown.peek(config.revision, SystemClock.elapsedRealtime())
+            if (!renoShutdown.permits(config.revision, SystemClock.elapsedRealtime())) {
+                if (contextAtEvent == null) cancelRenoMenuMonitor()
+                if (trial) authTrialLog("auth_event=refused reason=no_fresh_menu window=${event.windowId} eventUptime=${event.eventTime} receiveUptime=$receivedUptime ageMs=$ageMs menuWindow=${contextAtEvent?.menuWindowId ?: -1} lastMenuAgeMs=${contextAtEvent?.let { SystemClock.elapsedRealtime() - it.lastVerifiedMenuElapsed } ?: -1} episode=${contextAtEvent?.episodeId ?: -1} revision=${config.revision} generation=$generation")
+                return
+            }
+            if (trial) authTrialLog("auth_event=accepted context=present window=${event.windowId} eventUptime=${event.eventTime} receiveUptime=$receivedUptime ageMs=$ageMs menuWindow=${contextAtEvent?.menuWindowId ?: -1} lastMenuAgeMs=${contextAtEvent?.let { SystemClock.elapsedRealtime() - it.lastVerifiedMenuElapsed } ?: -1} episode=${contextAtEvent?.episodeId ?: -1} revision=${config.revision} generation=$generation")
             val candidate = ++generation
             dismissAuth(event.windowId, candidate, config.revision, 0)
             return
@@ -203,13 +258,51 @@ class NoResetMenuService : AccessibilityService() {
             MenuProfile.POCO -> PocoMenuFingerprint.event(event.eventType, event.packageName?.toString(), event.className?.toString())
         }
         if (!matchesEvent) return
-        if (event.windowId in handledWindows && !renoPasswordTrialActive()) return
-        if (renoAuthEnabled() && renoShutdown.begin(event.windowId, config.revision, SystemClock.elapsedRealtime(), event.eventTime, SystemClock.uptimeMillis())) handledAuthWindows.clear()
+        val trial = renoPasswordTrialActive()
+        val previouslyHandled = event.windowId in handledWindows
+        if (previouslyHandled && !trial) return
+        if (renoAuthEnabled()) {
+            val receivedUptime = SystemClock.uptimeMillis()
+            val ageMs = receivedUptime - event.eventTime
+            val validEventTime = event.windowId >= 0 && event.eventTime >= 0 && receivedUptime >= event.eventTime && ageMs <= 750
+            val contextElapsed = SystemClock.elapsedRealtime()
+            val created = renoShutdown.begin(event.windowId, config.revision, contextElapsed, event.eventTime, receivedUptime)
+            var monitorState = "unchanged"
+            if (created) {
+                handledAuthWindows.clear()
+                val snapshot = renoShutdown.peek(config.revision, SystemClock.elapsedRealtime())
+                if (snapshot != null) {
+                    cancelRenoMenuMonitor()
+                    scheduleRenoMenuMonitor(snapshot, 0)
+                    monitorState = "started"
+                }
+            } else {
+                val snapshot = renoShutdown.peek(config.revision, SystemClock.elapsedRealtime())
+                if (snapshot?.menuWindowId == event.windowId && isExactFocusedRenoMenu(event.windowId)) {
+                    val verifiedAt = SystemClock.elapsedRealtime()
+                    if (renoShutdown.markMenuVerified(snapshot.episodeId, config.revision, verifiedAt)) {
+                        renoShutdown.peek(config.revision, verifiedAt)?.let {
+                            cancelRenoMenuMonitor()
+                            scheduleRenoMenuMonitor(it, 100)
+                            monitorState = "duplicate_live_verified"
+                        }
+                    }
+                } else if (!validEventTime || snapshot == null) {
+                    monitorState = "rejected"
+                    if (snapshot == null) cancelRenoMenuMonitor()
+                }
+            }
+            if (trial) {
+                val disposition = when { created -> "created"; monitorState == "rejected" -> "rejected"; else -> "duplicate" }
+                val snapshot = renoShutdown.peek(config.revision, SystemClock.elapsedRealtime())
+                authTrialLog("menu_context=$disposition monitor=$monitorState window=${event.windowId} eventUptime=${event.eventTime} receiveUptime=$receivedUptime ageMs=$ageMs lastMenuAgeMs=${snapshot?.let { SystemClock.elapsedRealtime() - it.lastVerifiedMenuElapsed } ?: -1} episode=${snapshot?.episodeId ?: -1} revision=${config.revision} generation=$generation previouslyHandled=$previouslyHandled")
+            }
+        }
         val candidate = ++generation
-        if (renoPasswordTrialActive()) {
+        if (trial) {
             // Keep the original menu open during the owner's explicit prompt test.
             // If the swipe already replaced it, only the exact auth fingerprint can pass.
-            dismissAuthNow(null, candidate, config.revision)
+            dismissAuthNow(null, candidate, config.revision, attempt = -1, finalAttempt = true)
             return
         }
         dismiss(event.windowId, candidate, config.revision, 0, event.eventTime, SystemClock.uptimeMillis())
@@ -231,7 +324,10 @@ class NoResetMenuService : AccessibilityService() {
                         null -> false
                     }
                 } finally { @Suppress("DEPRECATION") root.recycle() }
-                if (!matches && renoAuthEnabled() && window.isActive && window.isFocused && window.title?.toString() != " ") renoShutdown.clear()
+                if (!matches && renoAuthEnabled() && window.isActive && window.isFocused && window.title?.toString() != " ") {
+                    cancelRenoMenuMonitor()
+                    renoShutdown.clear()
+                }
                 // Re-evaluate durable intent and the clock immediately before the action.
                 val latest = store.read()
                 if (matches && latest.revision == revision && generation == candidate && active(latest)) {
@@ -265,40 +361,96 @@ class NoResetMenuService : AccessibilityService() {
     private fun renoAuthEnabled(): Boolean = supportsRenoPasswordTrial()
 
     private fun dismissAuth(id: Int, candidate: Long, revision: Long, attempt: Int) {
-        if (instance !== this || generation != candidate || store.read().revision != revision || !active(store.read()) || !renoShutdown.permits(revision, SystemClock.elapsedRealtime())) return
-        if (dismissAuthNow(id, candidate, revision)) return
+        val blocked = when {
+            instance !== this -> "service_disconnected"
+            generation != candidate -> "generation_changed"
+            store.read().revision != revision -> "revision_changed"
+            !active(store.read()) -> "gate_closed"
+            !renoShutdown.permits(revision, SystemClock.elapsedRealtime()) -> "no_context_or_expired"
+            else -> null
+        }
+        if (blocked != null) {
+            if (blocked == "no_context_or_expired" && renoShutdown.peek(revision, SystemClock.elapsedRealtime()) == null) cancelRenoMenuMonitor()
+            authTrialLog("auth_attempt=$attempt result=blocked reason=$blocked window=$id generation=$generation revision=$revision${authTrialContextInfo(revision)}")
+            return
+        }
+        if (dismissAuthNow(id, candidate, revision, attempt, finalAttempt = attempt >= 6)) return
         if (attempt < 6) handler.postDelayed({ dismissAuth(id, candidate, revision, attempt + 1) }, 20)
     }
 
-    private fun dismissAuthNow(id: Int?, candidate: Long, revision: Long): Boolean {
-        if (!renoAuthEnabled() || instance !== this || generation != candidate || !renoShutdown.permits(revision, SystemClock.elapsedRealtime())) return false
+    private fun dismissAuthNow(id: Int?, candidate: Long, revision: Long, attempt: Int = -1, finalAttempt: Boolean = false): Boolean {
+        var windowMatch: Boolean? = null
+        var hierarchyMatch: Boolean? = null
+        var headingMatch: Boolean? = null
+        var observedNodes: List<RenoAuthNode> = emptyList()
+        var observedWindowId = id
+        fun record(outcome: String) {
+            if (!renoPasswordTrialActive()) return
+            val nodes = if (finalAttempt && outcome != "matched") " nodes=${authNodesSummary(observedNodes)}" else ""
+            authTrialLog("auth_attempt=$attempt result=$outcome window=${observedWindowId ?: -1} windowMatch=${windowMatch ?: false} hierarchyMatch=${hierarchyMatch?.toString() ?: "unknown"} headingMatch=${headingMatch?.toString() ?: "unknown"} generation=$generation revision=$revision${authTrialContextInfo(revision)}$nodes")
+        }
+        if (!renoAuthEnabled()) { record("profile_disabled"); return false }
+        if (instance !== this) { record("service_disconnected"); return false }
+        if (generation != candidate) { record("generation_changed"); return false }
+        if (!renoShutdown.permits(revision, SystemClock.elapsedRealtime())) {
+            if (renoShutdown.peek(revision, SystemClock.elapsedRealtime()) == null) cancelRenoMenuMonitor()
+            record("no_context_or_expired")
+            return false
+        }
         try {
-            val window = windows.firstOrNull { it.isActive && it.isFocused && (id == null || it.id == id) } ?: return false
-            if (window.id in handledAuthWindows) return false
-            val root = window.root ?: return false
-            val matches = try {
-                RenoAuthFingerprint.window(window.id, id ?: window.id, window.type, window.isActive, window.isFocused,
-                    root.packageName?.toString(), root.className?.toString(), window.title?.toString()) && renoAuthHierarchy(root)
+            val window = windows.firstOrNull { it.isActive && it.isFocused && (id == null || it.id == id) }
+            if (window == null) { record("no_focused_window"); return false }
+            observedWindowId = window.id
+            if (window.id in handledAuthWindows) { record("dedupe"); return false }
+            val root = window.root
+            if (root == null) { record("no_root"); return false }
+            val hierarchy = try {
+                windowMatch = RenoAuthFingerprint.window(window.id, id ?: window.id, window.type, window.isActive, window.isFocused,
+                    root.packageName?.toString(), root.className?.toString(), window.title?.toString())
+                if (windowMatch == true) {
+                    val result = renoAuthHierarchy(root)
+                    hierarchyMatch = result.matched
+                    headingMatch = result.headingMatched
+                    observedNodes = result.nodes
+                    result
+                } else null
             } finally { @Suppress("DEPRECATION") root.recycle() }
+            val matches = windowMatch == true && hierarchy?.matched == true
             val latest = store.read()
-            if (!matches || generation != candidate || latest.revision != revision || !active(latest)) return false
-            val menuId = renoShutdown.consume(revision, SystemClock.elapsedRealtime()) ?: return false
-            generation++
+            val blockedAfterRead = when {
+                !matches -> if (windowMatch != true) "window_fingerprint" else "hierarchy_fingerprint"
+                generation != candidate -> "generation_changed"
+                latest.revision != revision -> "revision_changed"
+                !active(latest) -> "gate_closed"
+                else -> null
+            }
+            if (blockedAfterRead != null) { record(blockedAfterRead); return false }
+            val menuId = renoShutdown.consume(revision, SystemClock.elapsedRealtime())
+            if (menuId == null) {
+                if (renoShutdown.peek(revision, SystemClock.elapsedRealtime()) == null) cancelRenoMenuMonitor()
+                record("context_expired_before_action")
+                return false
+            }
+            cancelRenoMenuMonitor()
+            val actionGeneration = ++generation
             handledAuthWindows.add(window.id)
             if (handledAuthWindows.size > 64) handledAuthWindows.remove(handledAuthWindows.first())
             // Cancel reveals the same original power window; allow one fresh menu event to close it.
             handledWindows.remove(menuId)
+            val actionElapsed = SystemClock.elapsedRealtime()
             val accepted = performGlobalAction(GLOBAL_ACTION_BACK)
             actionCount++
             lastResult = "Shutdown password cancellation $actionCount; window=${window.id}; accepted=$accepted."
             android.util.Log.i("PowerPauseAction", lastResult) // Action metadata only, never password input.
             getSharedPreferences("no_reset_status", MODE_PRIVATE).edit().putString("last_action", lastResult)
                 .putLong("action_epoch_ms", System.currentTimeMillis()).apply()
+            record("back_requested accepted=$accepted actionElapsedMs=${(actionElapsed - authTrialStartedElapsed).coerceAtLeast(0)} actionGeneration=$actionGeneration menuWindow=$menuId")
+            scheduleAuthTrialProbes(window.id, actionGeneration, revision)
             return true
-        } catch (_: RuntimeException) { return false }
+        } catch (_: RuntimeException) { record("window_read_exception"); return false }
     }
 
-    private fun renoAuthHierarchy(root: AccessibilityNodeInfo): Boolean {
+    private fun renoAuthHierarchy(root: AccessibilityNodeInfo): RenoAuthHierarchyResult {
         val nodes = ArrayList<RenoAuthNode>(15)
         var heading: String? = null
         fun walk(node: AccessibilityNodeInfo, depth: Int): Boolean {
@@ -316,7 +468,89 @@ class NoResetMenuService : AccessibilityService() {
             }
             return true
         }
-        return walk(root, 0) && RenoAuthFingerprint.hierarchy(nodes, heading)
+        val walked = walk(root, 0)
+        return RenoAuthHierarchyResult(
+            matched = walked && RenoAuthFingerprint.hierarchy(nodes, heading),
+            headingMatched = heading == "Enter Lock screen password",
+            nodes = nodes.toList(),
+        )
+    }
+
+    private fun isExactFocusedRenoMenu(menuWindowId: Int): Boolean {
+        return try {
+            val window = windows.firstOrNull { it.id == menuWindowId && it.isActive && it.isFocused } ?: return false
+            val root = window.root ?: return false
+            try {
+                RenoMenuFingerprint.window(window.id, menuWindowId, window.type, window.isActive, window.isFocused,
+                    root.packageName?.toString(), root.className?.toString(), window.title?.toString())
+            } finally { @Suppress("DEPRECATION") root.recycle() }
+        } catch (_: RuntimeException) { false }
+    }
+
+    private fun scheduleRenoMenuMonitor(snapshot: RenoShutdownContext.Snapshot, delayMs: Long) {
+        cancelRenoMenuMonitor()
+        val task = object : Runnable {
+            override fun run() {
+                if (renoMenuMonitorRunnable !== this) return
+                renoMenuMonitorRunnable = null
+                if (instance !== this@NoResetMenuService || !renoAuthEnabled() || interrupted) return
+                val config = store.read()
+                if (!active(config) || config.revision != snapshot.revision) {
+                    renoShutdown.clear()
+                    return
+                }
+                val now = SystemClock.elapsedRealtime()
+                val current = renoShutdown.peek(snapshot.revision, now) ?: return
+                if (current.episodeId != snapshot.episodeId || current.menuWindowId != snapshot.menuWindowId) return
+                if (!isExactFocusedRenoMenu(snapshot.menuWindowId)) {
+                    if (renoPasswordTrialActive()) authTrialLog("menu_monitor=stopped reason=not_exact_focused window=${snapshot.menuWindowId} episode=${snapshot.episodeId} lastMenuAgeMs=${now - current.lastVerifiedMenuElapsed} revision=${snapshot.revision}")
+                    return
+                }
+                val verifiedAt = SystemClock.elapsedRealtime()
+                if (!renoShutdown.markMenuVerified(snapshot.episodeId, snapshot.revision, verifiedAt)) return
+                val updated = renoShutdown.peek(snapshot.revision, verifiedAt) ?: return
+                if (renoPasswordTrialActive() &&
+                    (authTrialLastMenuLogElapsed == 0L || verifiedAt - authTrialLastMenuLogElapsed >= 1_000)) {
+                    authTrialLastMenuLogElapsed = verifiedAt
+                    authTrialLog("menu_monitor=verified window=${snapshot.menuWindowId} episode=${snapshot.episodeId} lastMenuAgeMs=0 revision=${snapshot.revision}")
+                }
+                scheduleRenoMenuMonitor(updated, 100)
+            }
+        }
+        renoMenuMonitorRunnable = task
+        handler.postDelayed(task, delayMs)
+    }
+
+    private fun cancelRenoMenuMonitor() {
+        renoMenuMonitorRunnable?.let(handler::removeCallbacks)
+        renoMenuMonitorRunnable = null
+    }
+
+    private fun scheduleAuthTrialProbes(windowId: Int, actionGeneration: Long, revision: Long) {
+        listOf(40L, 200L, 500L).forEach { delayMs ->
+            handler.postDelayed({
+                if (instance !== this || !renoPasswordTrialActive() || interrupted || generation != actionGeneration ||
+                    store.read().revision != revision) return@postDelayed
+                var focused = false
+                var fingerprint = false
+                try {
+                    val window = windows.firstOrNull { it.id == windowId && it.isActive && it.isFocused }
+                    if (window != null) {
+                        focused = true
+                        val root = window.root
+                        if (root != null) {
+                            try {
+                                val windowMatches = RenoAuthFingerprint.window(window.id, windowId, window.type,
+                                    window.isActive, window.isFocused, root.packageName?.toString(),
+                                    root.className?.toString(), window.title?.toString())
+                                if (windowMatches) fingerprint = renoAuthHierarchy(root).matched
+                            } finally { @Suppress("DEPRECATION") root.recycle() }
+                        }
+                    }
+                } catch (_: RuntimeException) { }
+                authTrialLog("post_back_probe delayMs=$delayMs authWindow=$windowId focused=$focused fingerprint=$fingerprint generation=$generation revision=$revision")
+            }, delayMs)
+        }
     }
 
     private fun pocoHierarchy(root: AccessibilityNodeInfo): Boolean {
@@ -342,6 +576,7 @@ class NoResetMenuService : AccessibilityService() {
 
     override fun onInterrupt() {
         renoPasswordTrial = false
+        cancelRenoMenuMonitor()
         renoShutdown.clear()
         interrupted = true; testDeadline = 0; observationDeadline = 0; manualTrialDeadline = 0; generation++; handler.removeCallbacksAndMessages(null)
         lastResult = "Service interrupted. Reopen the app before enabling protection."
@@ -351,6 +586,7 @@ class NoResetMenuService : AccessibilityService() {
     override fun onDestroy() { disconnect(); super.onDestroy() }
     private fun disconnect() {
         renoPasswordTrial = false
+        cancelRenoMenuMonitor()
         renoShutdown.clear(); handledAuthWindows.clear()
         generation++; testDeadline = 0; observationDeadline = 0; manualTrialDeadline = 0; observations.clear(); handler.removeCallbacksAndMessages(null)
         if (::store.isInitialized) store.preferences.unregisterOnSharedPreferenceChangeListener(changes)

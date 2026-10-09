@@ -7,6 +7,25 @@ import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class RenoAuthGuardTest {
+    @Test fun menuWindowVerificationRequiresExactFocusedRenoIdentity() {
+        assertTrue(RenoMenuFingerprint.window(21, 21, 3, true, true,
+            "com.android.systemui", "android.widget.FrameLayout", "Phone options"))
+        assertFalse(RenoMenuFingerprint.window(22, 21, 3, true, true,
+            "com.android.systemui", "android.widget.FrameLayout", "Phone options"))
+        assertFalse(RenoMenuFingerprint.window(21, 21, 2, true, true,
+            "com.android.systemui", "android.widget.FrameLayout", "Phone options"))
+        assertFalse(RenoMenuFingerprint.window(21, 21, 3, false, true,
+            "com.android.systemui", "android.widget.FrameLayout", "Phone options"))
+        assertFalse(RenoMenuFingerprint.window(21, 21, 3, true, false,
+            "com.android.systemui", "android.widget.FrameLayout", "Phone options"))
+        assertFalse(RenoMenuFingerprint.window(21, 21, 3, true, true,
+            "com.example", "android.widget.FrameLayout", "Phone options"))
+        assertFalse(RenoMenuFingerprint.window(21, 21, 3, true, true,
+            "com.android.systemui", "android.widget.LinearLayout", "Phone options"))
+        assertFalse(RenoMenuFingerprint.window(21, 21, 3, true, true,
+            "com.android.systemui", "android.widget.FrameLayout", "Other dialog"))
+    }
+
     @Test fun authEventRequiresExactSystemUiClassAndWindowStateChange() {
         assertTrue(RenoAuthFingerprint.event(32, "com.android.systemui", "android.widget.LinearLayout"))
         assertFalse(RenoAuthFingerprint.event(16, "com.android.systemui", "android.widget.LinearLayout"))
@@ -65,7 +84,7 @@ class RenoAuthGuardTest {
         assertTrue(context.permits(revision = 4, elapsed = 100))
     }
 
-    @Test fun contextExpiresAtEndExclusiveLifetimeAndRevisionMismatchClearsIt() {
+    @Test fun shortBridgeExpiresEndExclusiveAndRevisionMismatchClearsIt() {
         val expired = RenoShutdownContext()
         assertTrue(expired.begin(21, revision = 4, elapsed = 100, eventUptime = 1_000, nowUptime = 1_000))
         assertTrue(expired.permits(revision = 4, elapsed = 1_599))
@@ -96,6 +115,55 @@ class RenoAuthGuardTest {
         assertFalse(context.begin(21, revision = 4, elapsed = 1_000, eventUptime = 1_200, nowUptime = 1_200))
         assertTrue(context.permits(revision = 4, elapsed = 1_599))
         assertFalse(context.permits(revision = 4, elapsed = 1_600))
+    }
+
+    @Test fun verifiedMenuFocusRefreshesOnlyTheShortBridgeWithinTheFixedEpisode() {
+        val context = RenoShutdownContext()
+        assertTrue(context.begin(21, revision = 4, elapsed = 100, eventUptime = 1_000, nowUptime = 1_000))
+        val initial = context.peek(revision = 4, elapsed = 3_000)
+        assertEquals(21, initial?.menuWindowId)
+        assertEquals(100L, initial?.lastVerifiedMenuElapsed)
+        assertFalse(context.permits(revision = 4, elapsed = 3_000))
+
+        assertTrue(context.markMenuVerified(initial!!.episodeId, revision = 4, elapsed = 3_000))
+        assertTrue(context.permits(revision = 4, elapsed = 4_499))
+        assertFalse(context.permits(revision = 4, elapsed = 4_500))
+        assertTrue(context.peek(revision = 4, elapsed = 4_500) != null)
+    }
+
+    @Test fun duplicateEventsAndVerifiedFocusCannotExtendTheAbsoluteEpisodeCap() {
+        val context = RenoShutdownContext()
+        assertTrue(context.begin(21, revision = 4, elapsed = 100, eventUptime = 1_000, nowUptime = 1_000))
+        val initial = context.peek(revision = 4, elapsed = 101)!!
+        assertFalse(context.begin(21, revision = 4, elapsed = 60_000, eventUptime = 1_200, nowUptime = 1_200))
+        assertTrue(context.markMenuVerified(initial.episodeId, revision = 4, elapsed = 60_099))
+        assertTrue(context.permits(revision = 4, elapsed = 60_099))
+        assertFalse(context.permits(revision = 4, elapsed = 60_100))
+        assertNull(context.peek(revision = 4, elapsed = 60_100))
+    }
+
+    @Test fun negativeElapsedOrRevisionMismatchClearsFreshnessContext() {
+        val backwards = RenoShutdownContext()
+        assertTrue(backwards.begin(21, revision = 4, elapsed = 100, eventUptime = 1_000, nowUptime = 1_000))
+        val snapshot = backwards.peek(revision = 4, elapsed = 101)!!
+        assertFalse(backwards.markMenuVerified(snapshot.episodeId, revision = 4, elapsed = 99))
+        assertNull(backwards.peek(revision = 4, elapsed = 102))
+
+        val revised = RenoShutdownContext()
+        assertTrue(revised.begin(21, revision = 4, elapsed = 100, eventUptime = 1_000, nowUptime = 1_000))
+        assertNull(revised.peek(revision = 5, elapsed = 101))
+        assertFalse(revised.permits(revision = 4, elapsed = 102))
+    }
+
+    @Test fun staleEpisodeCannotRefreshAReplacementToken() {
+        val context = RenoShutdownContext()
+        assertTrue(context.begin(21, revision = 4, elapsed = 100, eventUptime = 1_000, nowUptime = 1_000))
+        val stale = context.peek(revision = 4, elapsed = 101)!!
+        assertTrue(context.begin(22, revision = 4, elapsed = 200, eventUptime = 1_100, nowUptime = 1_100))
+        val current = context.peek(revision = 4, elapsed = 201)!!
+        assertFalse(context.markMenuVerified(stale.episodeId, revision = 4, elapsed = 300))
+        assertEquals(22, context.peek(revision = 4, elapsed = 301)?.menuWindowId)
+        assertEquals(current.episodeId, context.peek(revision = 4, elapsed = 301)?.episodeId)
     }
 
     @Test fun invalidNewMenuEventClearsExistingContext() {

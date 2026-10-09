@@ -34,8 +34,8 @@ android {
     flavorDimensions += "edition"
     productFlavors {
         create("simple") {
-            versionCode = 8
-            versionName = "0.4.3"
+            versionCode = 9
+            versionName = "0.4.4"
             dimension = "edition"
             buildConfigField("boolean", "MANAGED_TOOLS", "false")
             buildConfigField("boolean", "COMPATIBILITY_EDITION", "false")

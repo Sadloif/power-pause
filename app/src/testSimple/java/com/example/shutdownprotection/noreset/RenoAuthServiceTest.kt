@@ -124,6 +124,54 @@ class RenoAuthServiceTest {
         assertEquals("Duplicate auth events cannot send another Back", 1, actions().size)
     }
 
+    @Test fun verifiedMenuFocusKeepsLateAuthAuthorizedBeyondTheInitialBridge() {
+        assertTrue(service.startRenoPasswordTrial())
+        windows(menuWindow(180))
+        send(menuEvent(180))
+        assertTrue(actions().isEmpty())
+
+        // The menu stays exact and focused while the owner reaches the prompt.
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(3))
+        windows(menuWindow(180, active = false, focused = false), authWindow(181))
+        send(authEvent(181))
+        assertEquals("Recent verified focus should bridge to the exact auth window", 1, actions().size)
+    }
+
+    @Test fun absentOrWrongMenuIdentityCannotRefreshLateAuthContext() {
+        assertTrue(service.startRenoPasswordTrial())
+        windows(menuWindow(182)); send(menuEvent(182))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofMillis(100))
+        windows()
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+        windows(authWindow(183)); send(authEvent(183))
+        assertTrue("An absent menu cannot keep the auth context fresh", actions().isEmpty())
+
+        windows(menuWindow(184)); send(menuEvent(184))
+        windows(menuWindow(184, title = "Other dialog"))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+        windows(authWindow(185)); send(authEvent(185))
+        assertTrue("A reused ID with the wrong title cannot refresh the context", actions().isEmpty())
+    }
+
+    @Test fun preferenceRevisionAndStopCancelAStillVisibleVerifiedMenuEpisode() {
+        assertTrue(service.startRenoPasswordTrial())
+        windows(menuWindow(186)); send(menuEvent(186))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+        assertTrue(store.save(false, 181, 361))
+        shadowOf(Looper.getMainLooper()).idle()
+        windows(menuWindow(186, active = false, focused = false), authWindow(187))
+        send(authEvent(187))
+        assertTrue("A settings revision cancels the context even with the menu behind auth", actions().isEmpty())
+
+        assertTrue(service.startRenoPasswordTrial())
+        windows(menuWindow(188)); send(menuEvent(188))
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(2))
+        assertTrue(service.stop())
+        windows(menuWindow(188, active = false, focused = false), authWindow(189))
+        send(authEvent(189))
+        assertTrue("Stop cancels the context even with the menu behind auth", actions().isEmpty())
+    }
+
     @Test fun normalTestStopSaveAndExpiryRestoreNormalMode() {
         assertTrue(service.startRenoPasswordTrial())
         assertTrue(service.startTest())
@@ -305,8 +353,15 @@ class RenoAuthServiceTest {
         shadowOf(this).setWindowId(id)
     }
 
-    private fun menuWindow(id: Int, active: Boolean = true, focused: Boolean = true): AccessibilityWindowInfo =
-        window(id, AccessibilityWindowInfo.TYPE_SYSTEM, active, focused, "Phone options", node("android.widget.FrameLayout"))
+    private fun menuWindow(
+        id: Int,
+        active: Boolean = true,
+        focused: Boolean = true,
+        title: String? = "Phone options",
+        pkg: String = "com.android.systemui",
+        rootClass: String = "android.widget.FrameLayout",
+    ): AccessibilityWindowInfo =
+        window(id, AccessibilityWindowInfo.TYPE_SYSTEM, active, focused, title, node(rootClass, pkg = pkg))
 
     private fun authWindow(id: Int, shape: AuthShape = AuthShape()): AccessibilityWindowInfo =
         window(id, AccessibilityWindowInfo.TYPE_SYSTEM, true, true, shape.title, authTree(shape))
@@ -366,9 +421,9 @@ class RenoAuthServiceTest {
         return root
     }
 
-    private fun node(clazz: String, id: String? = null, text: String? = null): AccessibilityNodeInfo =
+    private fun node(clazz: String, id: String? = null, text: String? = null, pkg: String = "com.android.systemui"): AccessibilityNodeInfo =
         AccessibilityNodeInfo.obtain().apply {
-            packageName = "com.android.systemui"
+            packageName = pkg
             className = clazz
             if (id != null) viewIdResourceName = id
             if (text != null) this.text = text

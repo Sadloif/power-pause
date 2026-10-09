@@ -37,6 +37,7 @@ object RenoMenuFingerprint {
                pkg: String?, rootClass: String?, title: String?): Boolean =
         candidate >= 0 && id == candidate && type == 3 && active && focused &&
         pkg == "com.android.systemui" && rootClass == "android.widget.FrameLayout" && title == "Phone options"
+
 }
 
 object NoResetTimeInput {

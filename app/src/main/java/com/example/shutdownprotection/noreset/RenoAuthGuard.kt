@@ -44,9 +44,24 @@ object RenoAuthFingerprint {
 
 /** Short-lived context tying a generic system authentication window to a trusted Reno power menu. */
 class RenoShutdownContext {
-    private data class Token(val menuWindowId: Int, val revision: Long, val begunElapsed: Long)
+    data class Snapshot(
+        val menuWindowId: Int,
+        val revision: Long,
+        val begunElapsed: Long,
+        val lastVerifiedMenuElapsed: Long,
+        val episodeId: Long,
+    )
+
+    private data class Token(
+        val menuWindowId: Int,
+        val revision: Long,
+        val begunElapsed: Long,
+        val lastVerifiedMenuElapsed: Long,
+        val episodeId: Long,
+    )
 
     private var token: Token? = null
+    private var nextEpisodeId = 0L
 
     fun begin(
         menuWindowId: Int,
@@ -62,20 +77,48 @@ class RenoShutdownContext {
         }
 
         val current = token
+        if (current != null && (elapsed < current.begunElapsed || elapsed < current.lastVerifiedMenuElapsed)) {
+            token = null
+            return false
+        }
         if (current != null && current.menuWindowId == menuWindowId && current.revision == revision &&
-            isCurrent(current, revision, elapsed)) return false
+            isWithinEpisode(current, revision, elapsed)) return false
 
-        token = Token(menuWindowId, revision, elapsed)
+        nextEpisodeId++
+        token = Token(menuWindowId, revision, elapsed, elapsed, nextEpisodeId)
+        return true
+    }
+
+    /** Read without expiring a context merely because its short auth bridge elapsed. */
+    fun peek(revision: Long, elapsed: Long): Snapshot? {
+        val current = token ?: return null
+        if (!isWithinEpisode(current, revision, elapsed) || elapsed < current.lastVerifiedMenuElapsed) {
+            token = null
+            return null
+        }
+        return Snapshot(current.menuWindowId, current.revision, current.begunElapsed,
+            current.lastVerifiedMenuElapsed, current.episodeId)
+    }
+
+    /** Refresh only after the service verifies the active menu window's exact identity. */
+    fun markMenuVerified(episodeId: Long, revision: Long, elapsed: Long): Boolean {
+        val current = token ?: return false
+        if (!isWithinEpisode(current, revision, elapsed) || elapsed < current.lastVerifiedMenuElapsed) {
+            token = null
+            return false
+        }
+        if (current.episodeId != episodeId) return false
+        token = current.copy(lastVerifiedMenuElapsed = elapsed)
         return true
     }
 
     fun permits(revision: Long, elapsed: Long): Boolean {
         val current = token ?: return false
-        if (!isCurrent(current, revision, elapsed)) {
+        if (!isWithinEpisode(current, revision, elapsed) || elapsed < current.lastVerifiedMenuElapsed) {
             token = null
             return false
         }
-        return true
+        return elapsed - current.lastVerifiedMenuElapsed < AUTH_BRIDGE_MS
     }
 
     fun consume(revision: Long, elapsed: Long): Int? {
@@ -89,12 +132,13 @@ class RenoShutdownContext {
         token = null
     }
 
-    private fun isCurrent(current: Token, revision: Long, elapsed: Long): Boolean =
+    private fun isWithinEpisode(current: Token, revision: Long, elapsed: Long): Boolean =
         current.revision == revision && elapsed >= current.begunElapsed &&
-            elapsed - current.begunElapsed < CONTEXT_LIFETIME_MS
+            elapsed - current.begunElapsed < MAX_EPISODE_MS
 
     private companion object {
         const val MAX_MENU_EVENT_AGE_MS = 750L
-        const val CONTEXT_LIFETIME_MS = 1_500L
+        const val AUTH_BRIDGE_MS = 1_500L
+        const val MAX_EPISODE_MS = 60_000L
     }
 }

@@ -46,6 +46,8 @@ class RenoAuthServiceTest {
         ReflectionHelpers.callInstanceMethod<Void>(service, "onServiceConnected")
         shadowOf(Looper.getMainLooper()).idle()
         assertEquals(MenuProfile.RENO, NoResetMenuService.profile())
+        assertTrue("The exact Reno password path is enabled in both safe editions",
+            NoResetMenuService.supportsRenoPasswordTrial())
     }
 
     @After fun cleanup() { service.onDestroy() }
@@ -315,7 +317,7 @@ class RenoAuthServiceTest {
         assertNull(NoResetMenuService.instance)
     }
 
-    @Test fun simpleAccessibilityXmlIncludesWindowViewIdsAndUnimportantViews() {
+    @Test fun accessibilityXmlIncludesWindowViewIdsAndUnimportantViews() {
         val intent = Intent(AccessibilityService.SERVICE_INTERFACE).setPackage(service.packageName)
         val resolveInfo = service.packageManager
             .queryIntentServices(intent, PackageManager.GET_META_DATA)

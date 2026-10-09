@@ -8,7 +8,7 @@ Power Pause closes the ordinary Power off / Restart menu during your daily hours
 
 ## Download the right edition
 
-Download a signed APK from [the current v0.4.4 prerelease](https://github.com/Sadloif/power-pause/releases/tag/v0.4.4), or browse [all releases](https://github.com/Sadloif/power-pause/releases). This release includes Simple 0.4.4, unchanged Compatibility 0.4.2 and unchanged Advanced 0.4.1. Read the device-specific verification limits below before enabling protection.
+Download a signed APK from [the current v0.4.5 prerelease](https://github.com/Sadloif/power-pause/releases/tag/v0.4.5), or browse [all releases](https://github.com/Sadloif/power-pause/releases). This release includes updated Compatibility 0.4.5, unchanged Simple 0.4.4 and unchanged Advanced 0.4.1. Read the device-specific verification limits below before enabling protection.
 
 | Edition | Android requirement | Package ID | Purpose |
 |---|---|---|---|
@@ -42,7 +42,7 @@ The APKs are signed local release builds, not Play Store production releases. Si
 6. **Stop protection now** pauses dismissal without turning off Accessibility. Expiry also leaves the service enabled. The explicit service-off control is in **Tools**.
 7. For an optional trial, pause the schedule and use **Tools → Test for 60 seconds**. Open the menu briefly and release power; never select Power off or Restart during a test. Confirm closure, then confirm the menu stays open after expiry.
 
-Simple 0.4.4 also attempts to cancel the exact tested Reno shutdown/restart password prompt immediately after a power-menu interaction. The original-menu context stays fresh only while the exact menu remains focused, fixing the observed 0.4.3 timing miss. It never reads credential input or changes your password. Automatic cancellation remains reactive and cannot guarantee beating every action. See [the implementation and verification record](docs/RENO_SHUTDOWN_AUTH.md). Compatibility 0.4.2 and Advanced 0.4.1 retain their existing binaries and do not include this stage.
+Simple 0.4.4 and Compatibility 0.4.5 also attempt to cancel the exact Reno shutdown/restart password prompt immediately after a power-menu interaction. The original-menu context stays fresh only while the exact menu remains focused, fixing the observed 0.4.3 timing miss. It never reads credential input or changes your password. The owner physically tested this path in Simple 0.4.4; the Compatibility port still needs its own phone test. Compatibility's Poco profile retains ordinary menu dismissal and does not gain shutdown-password recognition. Automatic cancellation remains reactive and cannot guarantee beating every action. See [the implementation and verification record](docs/RENO_SHUTDOWN_AUTH.md) and [Compatibility 0.4.5 setup and port checks](docs/COMPATIBILITY_RENO_AUTH.md). Advanced 0.4.1 does not include this stage.
 
 More setup detail and physical evidence: [No-reset mode](docs/NO_RESET_MODE.md).
 
@@ -76,6 +76,7 @@ The application name is declared explicitly per edition in Android’s manifest.
 
 - [Android 10+ compatibility and physical test guide](docs/ANDROID10_COMPATIBILITY.md)
 - [Simple 0.4.4: Reno shutdown password cancellation and verification](docs/RENO_SHUTDOWN_AUTH.md)
+- [Compatibility 0.4.5: Reno password-cancellation port and setup](docs/COMPATIBILITY_RENO_AUTH.md)
 - [Compatibility 0.4.2: Poco detector, tests and setup](docs/POCO_COMPATIBILITY_RELEASE.md)
 - [Advanced tools: caution, benefits and options](docs/ADVANCED_MODE.md)
 - [Accessibility setup, physical evidence and limits](docs/NO_RESET_MODE.md)

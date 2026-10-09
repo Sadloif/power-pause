@@ -1,6 +1,6 @@
 # Power Pause: Reno 15 setup and verification
 
-Current editions: **Simple 0.4.4** updates the original ordinary app and keeps its package and saved settings. **Advanced 0.4.1** and **Compatibility 0.4.2** use separate packages and approvals. Compatibility 0.4.2 adds a narrowly matched Poco Android 13 profile; see [its current results and setup](POCO_COMPATIBILITY_RELEASE.md). The Reno-only statements and version records below describe Simple or historical builds, not every current APK.
+Current editions: **Simple 0.4.4** updates the original ordinary app and keeps its package and saved settings. **Advanced 0.4.1** and **Compatibility 0.4.5** use separate packages and approvals. Compatibility retains the narrowly matched Poco Android 13 profile added in 0.4.2; see [its physical results and setup](POCO_COMPATIBILITY_RELEASE.md). Compatibility 0.4.5 adds the shared Reno shutdown-password path; see [the port verification and safe setup](COMPATIBILITY_RENO_AUTH.md). The Reno-only statements and version records below describe Simple or historical builds, not every current APK.
 
 Current Simple 0.4.4 includes narrowly scoped Reno shutdown-password cancellation and keeps context fresh only while the exact power menu is visible, fixing the observed 0.4.3 timing miss; see [its current verification record](RENO_SHUTDOWN_AUTH.md). Its only credential-related text read is the static prompt heading; credential input is never traversed. The older implementation descriptions below remain historical and do not describe this added stage.
 

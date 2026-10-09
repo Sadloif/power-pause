@@ -202,7 +202,7 @@ fun NoResetScreen(onManagedTools: () -> Unit = {}) {
                     }
                     SectionCard("How it works", "Closes the menu after it appears.") {
                         Text("The ordinary Power off / Restart menu may be visible briefly. Hardware forced restart and emergency functions remain available.")
-                        if (!BuildConfig.MANAGED_TOOLS && !BuildConfig.COMPATIBILITY_EDITION) Text("Also attempts to cancel the tested shutdown password screen immediately after a power-menu interaction. It does not change your password. This reacts after a window appears and cannot guarantee blocking every fast action.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        if (NoResetMenuService.supportsRenoPasswordTrial()) Text("Also attempts to cancel the tested shutdown password screen immediately after a power-menu interaction. It does not change your password. This reacts after a window appears and cannot guarantee blocking every fast action.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                         Text(if (!colorOs) "Power Pause does not turn Accessibility off when a test ends. Android can disconnect the service; the app will not re-enable itself."
                             else "If ColorOS shows “Abnormal device control” or turns the service off, check this app’s Allowlist entry. Power Pause will not re-enable itself.", style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
                     Text(if (poco) "POCO X3 Pro (M2102J20SG), Android 13, MIUI V14.0.3.0.TJUMIXM, English power-menu labels. Other firmware and languages need testing."
@@ -220,7 +220,7 @@ fun NoResetScreen(onManagedTools: () -> Unit = {}) {
                         Text("Back countdown: ${service?.manualTrialSeconds() ?: 0} seconds", style = MaterialTheme.typography.bodySmall)
                         OutlinedButton(onClick = { stop() }, modifier = Modifier.fillMaxWidth()) { Text("Cancel checks and stop") }
                     }
-                    if (NoResetMenuService.supportsRenoPasswordTrial()) SectionCard("Test shutdown password cancellation", "Simple Reno test · does not change your daily hours") {
+                    if (NoResetMenuService.supportsRenoPasswordTrial()) SectionCard("Test shutdown password cancellation", "Tested Reno firmware · does not change your daily hours") {
                         val passwordTrialActive = service?.renoPasswordTrialActive() == true
                         Text(if (passwordTrialActive) "Test active: $remaining seconds. The power menu intentionally stays open; swipe promptly to reach the shutdown password screen."
                             else "Pause the schedule and connect the eligible service first. This test keeps the power menu open so you can swipe promptly to the shutdown password screen.")

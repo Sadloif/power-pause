@@ -45,8 +45,8 @@ android {
             dimension = "edition"
             applicationIdSuffix = ".compatibility"
             minSdk = 29
-            versionCode = 7
-            versionName = "0.4.2"
+            versionCode = 10
+            versionName = "0.4.5"
             buildConfigField("boolean", "MANAGED_TOOLS", "false")
             buildConfigField("boolean", "COMPATIBILITY_EDITION", "true")
             manifestPlaceholders["powerPauseLabel"] = "Power Pause Compatibility"
@@ -58,6 +58,13 @@ android {
             applicationIdSuffix = ".advanced"
             manifestPlaceholders["powerPauseLabel"] = "Power Pause Advanced"
         }
+    }
+
+    // The exact Reno password-cancellation service regressions apply to both
+    // safe editions. Keep them out of Advanced, whose managed mode excludes the path.
+    sourceSets {
+        getByName("testSimple").java.srcDir("src/testRenoAuth/java")
+        getByName("testCompatibility").java.srcDir("src/testRenoAuth/java")
     }
 
     buildTypes {

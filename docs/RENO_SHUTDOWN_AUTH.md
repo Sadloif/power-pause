@@ -1,5 +1,7 @@
 # Simple 0.4.4: Reno shutdown authentication follow-up
 
+Current follow-up: Compatibility 0.4.5 now uses this same Reno path. Its shared regression tests passed, but its own physical Oppo/Poco tests remain pending. The observations below belong to Simple; see [the Compatibility port record and safe setup](COMPATIBILITY_RENO_AUTH.md).
+
 9 October 2026. The owner found that a sufficiently fast swipe on the ordinary Oppo power-menu slider could reach a separate password prompt before Simple 0.4.1 dismissed the menu. The previous successful menu tests did not exercise that path. Simple 0.4.3 added a narrowly scoped attempt to cancel that second stage. Owner testing then found an intermittent miss: the original-menu authorization expired after 1,500 ms even though the menu remained visible. A live capture confirmed an authentication event about 2,929 ms after the menu event being refused for missing context. Simple 0.4.4 addresses that gap by verifying the live original menu while it stays focused; it does not make generic authentication cancellable. Compatibility 0.4.2 and Advanced 0.4.1 binaries are retained unchanged; they do not include this new cancellation stage.
 
 ## Physical evidence and scope
@@ -10,7 +12,7 @@ A temporary, explicitly requested read-only check inside the existing Simple app
 
 ## Admission rules
 
-- The existing exact Reno build guard remains required. This stage is enabled only in Simple.
+- The existing exact Reno build guard remains required. This stage is enabled in Simple 0.4.4 and Compatibility 0.4.5. Advanced and the Poco profile remain excluded.
 - A trusted System UI event must identify the exact Oppo power-menu class. Its nonnegative window ID and event timestamp must be fresh: no future timestamp and at most 750 ms old when received.
 - The event creates a one-shot episode tied to the current schedule revision. Exact verification of the same focused original menu refreshes a short 1,500 ms transition window. Mere duplicate events do not refresh this proof, and the episode has an immutable 60-second maximum. Generic authentication without the episode is ignored.
 - The focused second-stage window must be SYSTEM, from System UI, have a LinearLayout root and the captured single-space title. The service checks the exact fifteen-node structural prefix, resource IDs and child counts, plus the fixed heading. Metadata retries are limited to six 20 ms intervals.
@@ -34,7 +36,7 @@ In the first final-version owner trial, the owner tried the fast swipe but the o
 
 ## Separate timed password-cancellation test
 
-Tools also offers **Test password cancellation for 60 seconds**, only on supported Simple Reno firmware. It requires a valid paused schedule and a connected, eligible service. It temporarily leaves the original menu open, while the same exact authentication matcher and 1,500 ms power-menu context are used. The corrected episode is refreshed only while the exact original menu remains focused. A late transition after the menu disappeared or the episode expired is intentionally refused. The mode is held only in memory, never enables the saved schedule, and clears on Stop, saving or editing hours, a normal test, expiry, interruption, disconnect or reconnection.
+Tools also offers **Test password cancellation for 60 seconds**, only on supported Reno firmware in Simple 0.4.4 and Compatibility 0.4.5. It requires a valid paused schedule and a connected, eligible service. It temporarily leaves the original menu open, while the same exact authentication matcher and 1,500 ms power-menu context are used. The corrected episode is refreshed only while the exact original menu remains focused. A late transition after the menu disappeared or the episode expired is intentionally refused. The mode is held only in memory, never enables the saved schedule, and clears on Stop, saving or editing hours, a normal test, expiry, interruption, disconnect or reconnection.
 
 ## Owner test, without shutdown
 

@@ -613,7 +613,6 @@ class NoResetMenuService : AccessibilityService() {
         fun profile(): MenuProfile? = MenuProfiles.select(BuildConfig.COMPATIBILITY_EDITION, Build.MODEL,
             Build.VERSION.SDK_INT, Build.DISPLAY, Build.VERSION.INCREMENTAL, Build.MANUFACTURER)
         fun supported(): Boolean = profile() != null
-        fun supportsRenoPasswordTrial(): Boolean = !BuildConfig.MANAGED_TOOLS &&
-            !BuildConfig.COMPATIBILITY_EDITION && profile() == MenuProfile.RENO
+        fun supportsRenoPasswordTrial(): Boolean = !BuildConfig.MANAGED_TOOLS && profile() == MenuProfile.RENO
     }
 }

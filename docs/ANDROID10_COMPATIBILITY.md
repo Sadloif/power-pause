@@ -4,6 +4,8 @@ This is a separate Simple app, minimum Android 10 / API 29, package `com.example
 
 ## What is and is not complete
 
+Current Compatibility 0.4.5 also includes the shared Reno shutdown-password cancellation physically tested in Simple 0.4.4. The port has passed desktop tests but still needs its own Oppo/Poco phone checks. Poco retains ordinary menu dismissal only. See [0.4.5 verification and safe setup](COMPATIBILITY_RENO_AUTH.md).
+
 The older-version APK and Simple interface are built for Android 10+. Framework tests execute application/activity launch, edition isolation and explicit Back trials on API 29 through 36. These checks are simulated Android framework execution, not phone observations.
 
 Compatibility 0.4.2 recognizes the tested Reno CPH2825 / Android 16 / build `CPH2825_16.0.10.501(EX01)` profile and the Poco X3 Pro M2102J20SG / Android 13 / Xiaomi / display `TKQ1.221013.002 test-keys` / incremental `V14.0.3.0.TJUMIXM` profile. Both require the observed English menu. Other firmware stays inactive. Changing minimum SDK cannot create a correct OEM detector. See [0.4.2 results and step-by-step setup](POCO_COMPATIBILITY_RELEASE.md) for actual checks, the initial failed trial and remaining physical checks.

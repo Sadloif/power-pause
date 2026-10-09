@@ -67,6 +67,24 @@ class PocoServiceTest {
         assertSame(service, NoResetMenuService.instance)
     }
 
+    @Test fun pocoKeepsItsNormalMenuTrialAndCannotStartRenoPasswordCancellation() {
+        assertFalse(NoResetMenuService.supportsRenoPasswordTrial())
+        assertFalse(service.startRenoPasswordTrial())
+        assertTrue(service.startTest())
+
+        menu(id = 75)
+        service.onAccessibilityEvent(event(75))
+        assertEquals(listOf(AccessibilityService.GLOBAL_ACTION_BACK), actions())
+
+        val authEvent = AccessibilityEvent.obtain(AccessibilityEvent.TYPE_WINDOW_STATE_CHANGED).apply {
+            packageName = "com.android.systemui"
+            className = "android.widget.LinearLayout"
+            shadowOf(this).setWindowId(76)
+        }
+        service.onAccessibilityEvent(authEvent)
+        assertEquals("The Reno password event cannot add a second POCO action", 1, actions().size)
+    }
+
     @Test fun genericDialogWrongContentIdExtraNodeAndWindowManagerTitleDoNotMatch() {
         assertTrue(service.startTest())
 

@@ -3,6 +3,7 @@ package com.example.shutdownprotection.noreset
 import android.accessibilityservice.AccessibilityService
 import android.os.Build
 import android.os.Looper
+import com.example.shutdownprotection.BuildConfig
 import org.junit.After
 import org.junit.Before
 import org.junit.Test
@@ -32,6 +33,9 @@ class CompatibilityTrialTest {
     @After fun cleanup() { service.onDestroy() }
     private fun advance(seconds: Long) = shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(seconds))
     @Test fun unknownPhoneCanRequestExactlyOneBackButNeverAutomaticTrial() {
+        assertTrue(BuildConfig.COMPATIBILITY_EDITION)
+        assertFalse(NoResetMenuService.supportsRenoPasswordTrial())
+        assertFalse(service.startRenoPasswordTrial())
         assertFalse(service.startTest())
         assertTrue(service.startCompatibilityBackTrial())
         assertFalse(service.startCompatibilityBackTrial())

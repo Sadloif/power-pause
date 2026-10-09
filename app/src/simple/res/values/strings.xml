@@ -1,0 +1,3 @@
+<resources>
+    <string name="no_reset_service_description">On the tested Reno firmware, closes the ordinary power menu during your chosen hours. It also attempts to cancel the observed shutdown/restart password prompt immediately after a power-menu interaction. Reads only System UI window identity, a bounded layout and its fixed heading; never reads or enters your password. Requires your approval and this app\'s ColorOS Allowlist entry. No factory reset or running Shizuku needed. Android can stop the service.</string>
+</resources>

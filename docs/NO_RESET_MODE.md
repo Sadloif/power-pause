@@ -1,6 +1,8 @@
 # Power Pause: Reno 15 setup and verification
 
-Current editions: **Simple 0.4.1** updates the original ordinary app and keeps its package and saved settings. **Advanced 0.4.1** and **Compatibility 0.4.2** use separate packages and approvals. Compatibility 0.4.2 adds a narrowly matched Poco Android 13 profile; see [its current results and setup](POCO_COMPATIBILITY_RELEASE.md). The Reno-only statements and version records below describe Simple or historical builds, not every current APK.
+Current editions: **Simple 0.4.3** updates the original ordinary app and keeps its package and saved settings. **Advanced 0.4.1** and **Compatibility 0.4.2** use separate packages and approvals. Compatibility 0.4.2 adds a narrowly matched Poco Android 13 profile; see [its current results and setup](POCO_COMPATIBILITY_RELEASE.md). The Reno-only statements and version records below describe Simple or historical builds, not every current APK.
+
+Current Simple 0.4.3 adds narrowly scoped Reno shutdown-password cancellation; see [its current verification record](RENO_SHUTDOWN_AUTH.md). Its only credential-related text read is the static prompt heading; credential input is never traversed. The older implementation descriptions below remain historical and do not describe this added stage.
 
 Updated 8 October 2026. Version 0.2.1 desktop verification passed: 257 tests, zero failures/errors/skipped; lint passed with zero errors and 23 warnings. It was installed over 0.2.0 with the saved schedule and Accessibility approval preserved. The owner subsequently confirmed all requested 0.2.1 time-entry, repeated-menu, expiry and retained-service checks worked; the independent readback and limits are separated below.
 
@@ -49,7 +51,7 @@ A later immediate UI check reported the probe disconnected. Android still listed
 
 ## Set up the final app, one step at a time
 
-1. Install the reviewed Power Pause Simple 0.4.1 APK as an update. Do not uninstall the final app first. Saved hours and approval are retained; check the current status on **Schedule**. A fresh installation starts paused.
+1. Install the reviewed Power Pause Simple 0.4.3 APK as an update. Do not uninstall the final app first. Saved hours and approval are retained; check the current status on **Schedule**. A fresh installation starts paused.
 2. The temporary probe apps have been removed. Leave unrelated apps and services alone.
 3. Open **Setup**, then tap **Open Phone Manager**.
 4. Navigate to **Viruses & risks → Block suspicious app activities → More options → Allowlist**.

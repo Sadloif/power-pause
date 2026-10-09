@@ -1,0 +1,3 @@
+646bdb4793abf22c7a5656ba3d6cfe906d38c043ae93d83f66d1982922da9f91  Power-Pause-Advanced-0.4.1.apk
+f6fa18b19fcec1aa28e9c029679f56b75019352ce593f21fe7d22b94a271aede  Power-Pause-Compatibility-0.4.2.apk
+f7b2d48cb1f06aa9498776b5e4f9d42f75070fde7a89d2ff4e94d7e604632bb5  Power-Pause-Simple-0.4.3.apk
